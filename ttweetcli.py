@@ -2,101 +2,157 @@ from socket import *
 import sys
 
 # '127.0.0.1'
-# clientSocket.send('PUT ' + message.encode())
-#     # Receive message from server
-#     receivedMessage = clientSocket.recv(1024)
 
-serverIP = ""
-serverPort = None
-username = ""
-clientSocket = socket(AF_INET, SOCK_STREAM)
+class Client:
+    def __init__(self):
+        self.serverIP = None
+        self.serverPort = None
+        self.username = None
+        self.clientSocket = None
 
+    def checkArguments(self):
+        # Check for correct number of arguments
+        if len(sys.argv) != 4:
+            print("error: args should contain <ServerIP> <ServerPort> <Username>")
+            exit()
 
-# Check for correct number of arguments
-if len(sys.argv) != 4:
-    print("error: args should contain <ServerIP> <ServerPort> <Username>")
-    exit()
+        # Check for serverIP argument
+        try:
+            serverIP = sys.argv[1]
+        except:
+            print("error: server ip invalid, connection refused.")
+            exit()
 
-# Check for serverIP argument
-try:
-    serverIP = sys.argv[1]
-except:
-    print("error: server ip invalid, connection refused.")
-    exit()
+        # Check for serverPort argument
+        try: 
+            serverPort = int(sys.argv[2])
+        except:
+            print("error: server port invalid, connection refused.")
+            exit()
 
-# Check for serverPort argument
-try: 
-    serverPort = int(sys.argv[2])
-except:
-    print("error: server port invalid, connection refused.")
-    exit()
+        # Check for username
+        try: 
+            username = sys.argv[3]
 
-# Check for username
-try: 
-    username = sys.argv[3]
-    # TODO check username format
-except:
-    print("error: username has wrong format, connection refused.")
-    exit()
+            # TODO check username format
 
 
 
-# Function to connect to the server
-def connectSocket():
-    try:
-        clientSocket.connect((serverIP, serverPort))
-    except:
-        print('Error Message: Server Not Found')
-        exit()
-    
-    if isUserLoggedIn():
-        print("username illegal, connection refused.")
-        # TODO disconnect
-    else:
-        print("username legal, connection established.")
+        except:
+            print("error: username has wrong format, connection refused.")
+            exit()
 
-# Function to end the connection
-def disconnect():
-    clientSocket.close()
-    print("bye bye")
-    
+    # Function to connect to the server
+    def connectSocket(self):
+        try:
+            clientSocket = socket(AF_INET, SOCK_STREAM)
+            clientSocket.connect((serverIP, serverPort))
+        except:
+            print('Error Message: Server Not Found')
+            exit()
+        
+        if isUserLoggedIn():
+            print("username illegal, connection refused.")
+            # TODO disconnect
+        else:
+            print("username legal, connection established.")
 
-# call sever and check if the user is already logged in
-# check_user_name <username>
-# 	response:
-# 	valid_username
-# 	invalid_username
+    # TODO
+    # Function to end the connection
+    def disconnect(self):
+        clientSocket.close()
+        print("bye bye")
+        
+    # Check which command to execute
+    def checkCommand(self, command, message):
+        if command == "tweet":
+            # message: hashtags message
+            self.tweet(message[0], message[1])
+        elif command == "subscribe":
+            self.subscribe(message)
+        elif command == "unsubscribe":
+            self.unsubscribe(message)
+        elif command == "timeline":
+            self.timeline()
+        elif command == "getusers":
+            self.getUsers()
+        elif command == "gettweets":
+            self.getTweets(message)
+        elif command == "exit":
+            self.disconnect()
+        
 
-def isUserLoggedIn():
-    clientSocket.send('check_user_name ' + username)
-    receivedMessage = clientSocket.recv(1024)
-    if (receivedMessage[1] == "True"):
-        return True
-    else:
-        return False
+    # call sever and check if the user is already logged in
+    # check_user_name <username>
+    # 	response:
+    # 	valid_username
+    # 	invalid_username
 
-# TODO
-# tweet <username> <hashtag> <message>
-# 	Response:
-# 		Uploaded tweet successfully
-# 		Failed to tweet
-def tweet(hashtag, message):
-    clientSocket.send('tweet ' + username + " " + hashtag + " " + message)
-    receivedMessage = clientSocket.recv(1024)
-    return
+    def isUserLoggedIn(self):
+        clientSocket.send('check_user_name ' + username)
+        receivedMessage = clientSocket.recv(1024)
+        if (receivedMessage == "Username is valid"):
+            return True
+        else:
+            return False
 
-# TODO
-def subscribe():
-    return
+    # TODO
+    # tweet <username> <hashtag> <message>
+    # 	Response:
+    # 		Uploaded tweet successfully
+    # 		Failed to tweet
+    def tweet(self, hashtag, message):
 
-# TODO
-def unsubscribe():
-    return
+        # check message format
+        if message == None or len(message) < 1:
+            print("message format illegal.")
+            return
+        elif len(message) > 150:
+            print("message length illegal, connection refused.")
+            return
 
-# TODO
-def timeline():
-    return
+        
+        # check hashtag format
 
-# TODO
-def getUsers():
-    return
+        if hashtag[0] != '#' or len(hashtag) > 15 or hashtag.contain(" "):
+            print("hashtag illegal format, connection refused.")
+            return
+
+        
+        hashtags = hashtag.split("#")
+        if len(hashtags) > 5:
+            print("hashtag illegal format, connection refused.")
+            return
+        
+        for hash in hashtags:
+            if len(hash) < 2:
+                print("hashtag illegal format, connection refused.")
+                return
+        
+        # TODO ? hashtag only has alphabet characters(lower case + upper case) and numbers
+        
+
+        # tweet to server
+        clientSocket.send('tweet ' + username + " " + hashtag + " " + message)
+        receivedMessage = clientSocket.recv(1024)
+        
+
+    # TODO
+    def subscribe(self, hashtag):
+        return
+
+    # TODO
+    def unsubscribe(self, hashtag):
+        return
+
+    # TODO
+    def timeline(self):
+        return
+
+    # TODO
+    def getUsers(self):
+        return
+
+    # TODO
+    def getTweets(self):
+        return
