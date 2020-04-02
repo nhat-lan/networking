@@ -171,9 +171,14 @@ class Client:
         for tweet in receivedMessage:
             print(tweet)
 
-    # TODO
+    # getusers
+	# Response:
+	# 	[username1, username2,...]
     def getUsers(self):
-        return
+        clientSocket.send("getusers")
+        receivedMessage = json.loads(clientSocket.recv(1024))
+        for user in receivedMessage:
+            print(user)
 
     # TODO
     def getTweets(self):
