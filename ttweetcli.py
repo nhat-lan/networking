@@ -180,6 +180,17 @@ class Client:
         for user in receivedMessage:
             print(user)
 
-    # TODO
-    def getTweets(self):
-        return
+    # gettweets <another person username>
+	# Response:
+	# 	[ <sender_username>: “<tweet message>” <origin hashtag> ]
+	# 	or
+	# 	“no user <Username> in the system”
+    def getTweets(self, user):
+        clientSocket.send("gettweets " + user)
+        receivedMessage = clientSocket.recv(1024)
+        if receivedMessage == "no user " + user + " in the system":
+            print(receivedMessage)
+        else:
+            receivedMessage = json.loads(receivedMessage)
+            for tweet in receivedMessage:
+                print(tweet)
