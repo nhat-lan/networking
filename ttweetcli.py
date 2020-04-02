@@ -45,6 +45,7 @@ class Client:
 
     # Function to connect to the server
     def connectSocket(self):
+        self.checkArguments()
         try:
             clientSocket = socket(AF_INET, SOCK_STREAM)
             clientSocket.connect((serverIP, serverPort))
@@ -72,20 +73,24 @@ class Client:
             exit()
         
     # Check which command to execute
-    def checkCommand(self, command, message):
+    def checkCommand(self, commandline):
+        commandList = commandline.split(" ")
+        command = commandList[1]
+
         if command == "tweet":
             # message: hashtags message
-            self.tweet(message[0], message[1])
+            message = commandline.split("\"")[1]
+            self.tweet(message,commandList[-1])
         elif command == "subscribe":
-            self.subscribe(message)
+            self.subscribe(commandList[1])
         elif command == "unsubscribe":
-            self.unsubscribe(message)
+            self.unsubscribe(commandList[1])
         elif command == "timeline":
             self.timeline()
         elif command == "getusers":
             self.getUsers()
         elif command == "gettweets":
-            self.getTweets(message)
+            self.getTweets(commandList[1])
         elif command == "exit":
             self.disconnect()
         
@@ -201,3 +206,10 @@ class Client:
             receivedMessage = json.loads(receivedMessage)
             for tweet in receivedMessage:
                 print(tweet)
+
+
+client = Client()
+client.connectSocket()
+while True:
+    command = input()
+    client.checkCommand(command)
