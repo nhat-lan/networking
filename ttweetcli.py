@@ -130,7 +130,7 @@ class Client:
                 return
         
         # TODO ? hashtag only has alphabet characters(lower case + upper case) and numbers
-        
+
 
         # tweet to server
         clientSocket.send('tweet ' + username + " " + hashtag + " " + message)
@@ -138,8 +138,19 @@ class Client:
         
 
     # TODO
+    # subscribe <username> <hashtag>
+	# Response:
+	# Subscribe to <hashtag> successfully
+	# Failed to subscribe
     def subscribe(self, hashtag):
-        return
+        # subscribe to server
+        clientSocket.send('subscribe ' + username + " " + hashtag)
+        receivedMessage = clientSocket.recv(1024)
+
+        if receivedMessage == "Subscribe to " + hashtag + " succesfully":
+            print("operation success")
+        else:
+            print("operation failed: sub " + hashtag + " failed, already exists or exceeds 3 limitation")
 
     # TODO
     def unsubscribe(self, hashtag):
