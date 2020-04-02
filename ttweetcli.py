@@ -41,7 +41,6 @@ except:
 
 
 
-
 # Function to connect to the server
 def connectSocket():
     try:
@@ -52,6 +51,7 @@ def connectSocket():
     
     if isUserLoggedIn():
         print("username illegal, connection refused.")
+        # TODO disconnect
     else:
         print("username legal, connection established.")
 
@@ -61,15 +61,28 @@ def disconnect():
     print("bye bye")
     
 
-# TODO call sever and check if the user is already logged in
-def isUserLoggedIn():
-    clientSocket.send('PUT ' + username)
+# call sever and check if the user is already logged in
+# check_user_name <username>
+# 	response:
+# 	valid_username
+# 	invalid_username
 
+def isUserLoggedIn():
+    clientSocket.send('check_user_name ' + username)
     receivedMessage = clientSocket.recv(1024)
-    return
+    if (receivedMessage[1] == "True"):
+        return True
+    else:
+        return False
 
 # TODO
-def tweet():
+# tweet <username> <hashtag> <message>
+# 	Response:
+# 		Uploaded tweet successfully
+# 		Failed to tweet
+def tweet(hashtag, message):
+    clientSocket.send('tweet ' + username + " " + hashtag + " " + message)
+    receivedMessage = clientSocket.recv(1024)
     return
 
 # TODO

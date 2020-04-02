@@ -1,3 +1,8 @@
-Check username
-client: "CHECKUSERNAME username"
-server: "username exist" / "username doesn't exist"
+# Client method
+* tweet
+* subscribe
+* unsubcribe
+* timeline
+* getusers
+* gettweets
+* exit
