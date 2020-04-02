@@ -60,9 +60,16 @@ class Client:
 
     # TODO
     # Function to end the connection
+    # exit <username>
+	# Response:
+	# 	Exit out of the system successfully
     def disconnect(self):
-        clientSocket.close()
-        print("bye bye")
+        clientSocket.send("exit " + username)
+        receivedMessage = clientSocket.recv(1024)
+        if receivedMessage:
+            clientSocket.close()
+            print("bye bye")
+            exit()
         
     # Check which command to execute
     def checkCommand(self, command, message):
