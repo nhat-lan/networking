@@ -96,7 +96,6 @@ class Client:
         else:
             return False
 
-    # TODO
     # tweet <username> <hashtag> <message>
     # 	Response:
     # 		Uploaded tweet successfully
@@ -133,18 +132,16 @@ class Client:
 
 
         # tweet to server
-        clientSocket.send('tweet ' + username + " " + hashtag + " " + message)
+        clientSocket.send("tweet " + username + " " + hashtag + " " + message)
         receivedMessage = clientSocket.recv(1024)
         
-
-    # TODO
     # subscribe <username> <hashtag>
 	# Response:
 	# Subscribe to <hashtag> successfully
 	# Failed to subscribe
     def subscribe(self, hashtag):
         # subscribe to server
-        clientSocket.send('subscribe ' + username + " " + hashtag)
+        clientSocket.send("subscribe " + username + " " + hashtag)
         receivedMessage = clientSocket.recv(1024)
 
         if receivedMessage == "Subscribe to " + hashtag + " succesfully":
@@ -152,9 +149,16 @@ class Client:
         else:
             print("operation failed: sub " + hashtag + " failed, already exists or exceeds 3 limitation")
 
-    # TODO
+    # unsubscribe <username> <hashtag>
+	# Response:
+	# 	Unsubscribed successfully
     def unsubscribe(self, hashtag):
-        return
+        clientSocket.send("unsubscribe " + username + " " + hashtag)
+        receivedMessage = clientSocket.recv(1024)
+        if receivedMessage == "Unsubscribed successfully":
+            print("operation success")
+        
+        # TODO NOT SURE HOW TO HANDLE Unsubscribe command should have no effect if it refers to a # that has not been subscribed to previously.
 
     # TODO
     def timeline(self):
