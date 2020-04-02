@@ -1,5 +1,6 @@
 from socket import *
 import sys
+import json
 
 # '127.0.0.1'
 
@@ -160,9 +161,15 @@ class Client:
         
         # TODO NOT SURE HOW TO HANDLE Unsubscribe command should have no effect if it refers to a # that has not been subscribed to previously.
 
-    # TODO
+
+    # timeline <username>
+	# Response:
+	# 	[ <sender_username>: “<tweet message>” <origin hashtag> ]
     def timeline(self):
-        return
+        clientSocket.send("timeline " + username)
+        receivedMessage = json.loads(clientSocket.recv(1024))
+        for tweet in receivedMessage:
+            print(tweet)
 
     # TODO
     def getUsers(self):
