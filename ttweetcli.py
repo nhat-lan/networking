@@ -7,6 +7,7 @@ import re
 MAX_VALID_PORTS = (2**16)-1
 IPV4_REGEX = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
 USERNAME_REGEX = re.compile("^[a-zA-Z0-9]+$")
+HASHTAG_REGEX = re.compile("^(#[a-zA-Z0-9]{1,14})((#[a-zA-Z0-9]{1,14}){0,4})$")
 
 class Client:
     def __init__(self):
@@ -26,6 +27,9 @@ class Client:
 
     def isValidMessage(self, message):
         return message and len(message)
+
+    def isValidHashtag(self, hashtag):
+        return hashtag and HASHTAG_REGEX.match(hashtag)
 
     def checkArguments(self, argv):
         # Check for correct number of arguments
@@ -134,23 +138,9 @@ class Client:
 
 
         # check hashtag format
-
-        if hashtag[0] != '#' or len(hashtag) > 15 or hashtag.contain(" "):
+        if not isValidHashtag(hashtag):
             print("hashtag illegal format, connection refused.")
             return
-
-
-        hashtags = hashtag.split("#")
-        if len(hashtags) > 5:
-            print("hashtag illegal format, connection refused.")
-            return
-
-        for hash in hashtags:
-            if len(hash) < 2:
-                print("hashtag illegal format, connection refused.")
-                return
-
-        # TODO ? hashtag only has alphabet characters(lower case + upper case) and numbers
 
 
         # tweet to server
