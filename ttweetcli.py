@@ -11,82 +11,77 @@ HASHTAG_REGEX = re.compile("^(#[a-zA-Z0-9]{1,14})((#[a-zA-Z0-9]{1,14}){0,4})$")
 
 class Client:
     def __init__(self):
-        self.serverIP = None
-        self.serverPort = None
+        self.server_ip = None
+        self.server_port = None
         self.username = None
-        self.clientSocket = None
+        self.client_socket = None
 
-    def isValidServerIP(self, ip):
+
+    def is_valid_serverIP(self, ip):
         return ip and IPV4_REGEX.match(ip)
 
-    def isValidPort(self, port):
+    def is_valid_port(self, port):
         return port and (port.isDigit()) and (0<=int(port)<=MAX_VALID_PORTS)
 
-    def isValidUsername(self, username):
+    def is_valid_username(self, username):
         return username and USERNAME_REGEX.match(username)
 
-    def isValidMessage(self, message):
-        return message and len(message)
-
-    def isValidHashtag(self, hashtag):
+    def is_valid_hashtag(self, hashtag):
         return hashtag and HASHTAG_REGEX.match(hashtag)
 
-    def checkArguments(self, argv):
+
+    def check_arguments(self, argv):
         # Check for correct number of arguments
         if len(argv) != 4:
             print("error: args should contain <ServerIP> <ServerPort> <Username>")
             exit()
 
         # Check for serverIP argument
-        if not isValidServerIP(argv[1]):
+        if not self.is_valid_serverIP(argv[1]):
             print("error: server ip invalid, connection refused.")
             exit()
 
         # Check for serverPort argument
-        if not isValidPort(argv[2]):
+
+        if not self.is_valid_port(argv[2]):
             print("error: server port invalid, connection refused.")
             exit()
 
         # Check for username
-        if not isValidUsername(argv[3]):
+        if not self.is_valid_username(argv[3]):
             print("error: username has wrong format, connection refused.")
             exit()
 
-        _,serverIP,serverPort,username = argv
-        serverPort=int(serverPort)
+        _,self.serverIP,self.serverPort,self.username = argv
+        self.serverPort=int(self.serverPort)
 
 
     # Function to connect to the server
-    def connectSocket(self):
-        self.checkArguments()
+    def connect_socket(self):
+        self.check_arguments(sys.argv)
         try:
-            clientSocket = socket(AF_INET, SOCK_STREAM)
-            clientSocket.connect((serverIP, serverPort))
+            self.client_socket = socket(AF_INET, SOCK_STREAM)
+            self.client_socket.connect((self.server_ip, self.server_port))
         except:
             print('Error Message: Server Not Found')
             exit()
 
-        if isUserLoggedIn():
-            print("username illegal, connection refused.")
-            exit()
-        else:
-            print("username legal, connection established.")
+        print('Connection established.')
 
     # TODO
     # Function to end the connection
-    # exit <username>
 	# Response:
 	# 	Exit out of the system successfully
     def disconnect(self):
-        clientSocket.send("exit " + username)
-        receivedMessage = clientSocket.recv(1024)
-        if receivedMessage:
-            clientSocket.close()
+        self.client_socket.send("exit " + self.username)
+        received_message = self.client_socket.recv(1024)
+        if received_message:
+            self.client_socket.close()
             print("bye bye")
             exit()
 
     # Check which command to execute
-    def checkCommand(self, commandline):
+    def check_command(self, commandline):
         commandList = commandline.split(" ")
         command = commandList[1]
 
@@ -101,9 +96,9 @@ class Client:
         elif command == "timeline":
             self.timeline()
         elif command == "getusers":
-            self.getUsers()
+            self.get_users()
         elif command == "gettweets":
-            self.getTweets(commandList[1])
+            self.get_tweets(commandList[1])
         elif command == "exit":
             self.disconnect()
 
@@ -114,10 +109,10 @@ class Client:
     # 	valid_username
     # 	invalid_username
 
-    def isUserLoggedIn(self):
-        clientSocket.send('check_user_name ' + username)
-        receivedMessage = clientSocket.recv(1024)
-        if (receivedMessage == "Username is valid"):
+    def is_user_logged_in(self):
+        self.client_socket.send('check_username ' + self.username)
+        received_message = self.client_socket.recv(1024)
+        if (received_message == "Username is valid"):
             return True
         else:
             return False
@@ -138,14 +133,14 @@ class Client:
 
 
         # check hashtag format
-        if not isValidHashtag(hashtag):
+        if not is_valid_hashtag(hashtag):
             print("hashtag illegal format, connection refused.")
             return
 
 
         # tweet to server
-        clientSocket.send("tweet " + username + " " + hashtag + " " + message)
-        receivedMessage = clientSocket.recv(1024)
+        self.client_socket.send("tweet " + self.username + " " + hashtag + " " + message)
+        received_message = self.client_socket.recv(1024)
 
     # subscribe <username> <hashtag>
 	# Response:
@@ -153,10 +148,10 @@ class Client:
 	# Failed to subscribe
     def subscribe(self, hashtag):
         # subscribe to server
-        clientSocket.send("subscribe " + username + " " + hashtag)
-        receivedMessage = clientSocket.recv(1024)
+        self.client_socket.send("subscribe " + self.username + " " + hashtag)
+        received_message = self.client_socket.recv(1024)
 
-        if receivedMessage == "Subscribe to " + hashtag + " succesfully":
+        if received_message == "Subscribe to " + hashtag + " succesfully":
             print("operation success")
         else:
             print("operation failed: sub " + hashtag + " failed, already exists or exceeds 3 limitation")
@@ -165,9 +160,9 @@ class Client:
 	# Response:
 	# 	Unsubscribed successfully
     def unsubscribe(self, hashtag):
-        clientSocket.send("unsubscribe " + username + " " + hashtag)
-        receivedMessage = clientSocket.recv(1024)
-        if receivedMessage == "Unsubscribed successfully":
+        self.client_socket.send("unsubscribe " + self.username + " " + hashtag)
+        received_message = self.client_socket.recv(1024)
+        if received_message == "Unsubscribed successfully":
             print("operation success")
 
         # TODO NOT SURE HOW TO HANDLE Unsubscribe command should have no effect if it refers to a # that has not been subscribed to previously.
@@ -175,40 +170,40 @@ class Client:
 
     # timeline <username>
 	# Response:
-	# 	[ <sender_username>: “<tweet message>” <origin hashtag> ]
+	# 	[ <sender_username>: <tweet message> <origin hashtag> ]
     def timeline(self):
-        clientSocket.send("timeline " + username)
-        receivedMessage = json.loads(clientSocket.recv(1024))
-        for tweet in receivedMessage:
+        self.client_socket.send("timeline " + self.username)
+        received_message = json.loads(self.client_socket.recv(1024))
+        for tweet in received_message:
             print(tweet)
 
     # getusers
 	# Response:
 	# 	[username1, username2,...]
-    def getUsers(self):
-        clientSocket.send("getusers")
-        receivedMessage = json.loads(clientSocket.recv(1024))
-        for user in receivedMessage:
+    def get_users(self):
+        self.client_socket.send("getusers")
+        received_message = json.loads(self.client_socket.recv(1024))
+        for user in received_message:
             print(user)
 
     # gettweets <another person username>
 	# Response:
-	# 	[ <sender_username>: “<tweet message>” <origin hashtag> ]
+	# 	[ <sender_username>: <tweet message> <origin hashtag> ]
 	# 	or
-	# 	“no user <Username> in the system”
-    def getTweets(self, user):
-        clientSocket.send("gettweets " + user)
-        receivedMessage = clientSocket.recv(1024)
-        if receivedMessage == "no user " + user + " in the system":
-            print(receivedMessage)
+	# 	"no user <Username> in the system"
+    def get_tweets(self, user):
+        self.client_socket.send("gettweets " + user)
+        received_message = self.client_socket.recv(1024)
+        if received_message == "no user " + user + " in the system":
+            print(received_message)
         else:
-            receivedMessage = json.loads(receivedMessage)
-            for tweet in receivedMessage:
+            received_message = json.loads(received_message)
+            for tweet in received_message:
                 print(tweet)
 
 
 client = Client()
-client.connectSocket()
+client.connect_socket()
 while True:
     command = input()
-    client.checkCommand(command)
+    client.check_command(command)

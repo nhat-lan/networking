@@ -1,7 +1,7 @@
 import sys
 from socket import *
-
-
+import thread
+    
 class Server:
     def __init__(self):
         self.hashtags = {}
@@ -15,7 +15,7 @@ class Server:
         try:
             self.server_socket = socket(AF_INET, SOCK_STREAM)
             self.server_socket.bind(('127.0.0.1', server_port))
-            self.server_socket.listen(1)
+            self.server_socket.listen(5)
             print("The server is ready to receive at {0}".format(server_port))
         except (error, OverflowError) as e:
             print("Caught exception {0}".format(e))
@@ -62,7 +62,6 @@ class Server:
             self.connection_socket.send('Username is taken')
 
     def get_timeline(self, username):
-        # do something
         print('get_timeline')
 
     def get_users(self):
@@ -73,16 +72,65 @@ class Server:
 
     def exit(self, username):
         print('exit')
+    
+    # def update_tweet_message(self, username, message="", hashtags=""):
 
-    def tweet(self, comand):
-        print('tweeting :P')
+    #     # user_data = users.get(username)
+        
+        
+    #     # if (user_data): # if username existed in the system
+            
+    #         # subscribed_to = user_data.get('subscribed_to')
+    #         # hashtag_list = hashtags.split('#')
+    #         # subscribed_to.update(hashtag_list)
+    #     print(message_received)
 
-    def subscribe(self, username, hashtag):
+    # broadcast to all users that subscribe to the hashtag
+    def broadcast_message(self, message, hashtag):
+        subscribers = hashtags.get(hashtag)
+        # if subscribers:
+        #     for subscriber in subscribers:
+        #          print
+        print('broadcast message')
+
+    '''
+    tweet <username> <hashtag> <message>
+	Response:
+		Uploaded tweet successfully
+		Failed to tweet
+    '''
+    def tweet(self, command):
+        username = command[1]
+        hashtags = command[2]
+        message = command[3]
+        
+        self.broadcast_message(message, hashtags)
+
+        print('User ', username, 'tweeted successfully')
+
+
+    def subscribe(self, username, hashtags):
         print('subcribe')
 
     def unsubscribe(self, username, hashtag):
         print('unsubcribe')
 
+    def start_new_client(self, conn):
+        while 1:
+            try: 
+                command = conn.recv(1024)
+                # command = self.connection_socket.recv(1024)
+                self.execute_command(command)
+                if not command:
+                    break
+            except (Exception) as e:
+                print('e', e)
+        #conn.sendall(reply)
+        conn.close()
+
+
+    print('heeloo')
+    
     def run_server(self):
 
         # check if input from comand line is valid
@@ -100,11 +148,19 @@ class Server:
             sys.exit()
 
         while 1:
-            self.connection_socket, addr = self.server_socket.accept()
+            try:
+                self.connection_socket, addr = self.server_socket.accept()
+                print("Connection from: " + str(addr))
+                
+                # connect to a new client
+                thread.start_new_thread(self.start_new_client, (self.connection_socket,))
+                
+            except (Exception) as e:
+                print("Error receiving new client", e)
+                break
 
-            command = self.connection_socket.recv(1024)
-            self.execute_command(command)
 
-            self.connection_socket.close()
+        self.connection_socket.close()
+
 server = Server()
 server.run_server()
