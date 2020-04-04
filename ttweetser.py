@@ -5,7 +5,7 @@ import thread
 class Server:
     def __init__(self):
         self.hashtags = {}
-        self.users = {}
+        self.clients = {}
         
         self.message = None
         self.server_socket = None
@@ -53,10 +53,10 @@ class Server:
                 if command[0] == 'tweet':
                     self.tweet(command)
         else:
-            print('Command is invalid')
+            print(command, 'Command is invalid')
 
     def check_username(self, username):
-        if self.users.get(username) == None: #username is not in the system
+        if self.clients.get(username) == None: #username is not in the system
             self.connection_socket.send('Username is valid') 
         else:
             self.connection_socket.send('Username is taken')
@@ -119,18 +119,14 @@ class Server:
         while 1:
             try: 
                 command = conn.recv(1024)
-                # command = self.connection_socket.recv(1024)
                 self.execute_command(command)
                 if not command:
                     break
-            except (Exception) as e:
-                print('e', e)
-        #conn.sendall(reply)
+            except (Exception) as err:
+                print('Got errors starting new client', err)
+
         conn.close()
 
-
-    print('heeloo')
-    
     def run_server(self):
 
         # check if input from comand line is valid
@@ -140,6 +136,7 @@ class Server:
             print("python ttweetser.py <ServerPort>")
             sys.exit()
         try:
+            # create the server connection
             server_port = int(args[1])
             self.check_port_validation(server_port)
             self.create_connection(server_port)
@@ -152,9 +149,16 @@ class Server:
                 self.connection_socket, addr = self.server_socket.accept()
                 print("Connection from: " + str(addr))
                 
+                # add the new client to the client list
+                self.clients.update({
+                        'address': addr,
+                        'message_received': [],
+                        'subscribed_to': set()
+                    }
+                )
+
                 # connect to a new client
                 thread.start_new_thread(self.start_new_client, (self.connection_socket,))
-                
             except (Exception) as e:
                 print("Error receiving new client", e)
                 break

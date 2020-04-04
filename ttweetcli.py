@@ -76,7 +76,6 @@ class Client:
     def check_command(self, commandline):
         commandList = commandline.split(" ")
         command = commandList[1]
-
         if command == "tweet":
             # message: hashtags message
             message = commandline.split("\"")[1]
@@ -211,5 +210,5 @@ class Client:
 client = Client()
 client.connect_socket()
 while True:
-    command = input()
+    command = raw_input()
     client.check_command(command)
