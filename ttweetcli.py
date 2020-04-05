@@ -3,11 +3,55 @@ import sys
 import json
 import re
 
+from queue import Queue
+from copy import copy
+
+from _thread import *
+import threading
+
 # '127.0.0.1'
 MAX_VALID_PORTS = (2**16)-1
 IPV4_REGEX = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
 USERNAME_REGEX = re.compile("^[a-zA-Z0-9]+$")
 HASHTAG_REGEX = re.compile("^(#[a-zA-Z0-9]{1,14})((#[a-zA-Z0-9]{1,14}){0,4})$")
+
+class ClientListener:
+
+    def __init__(self, ip, port, timeline_queue, hashtags):
+        self.server_addr = (ip, port)
+        self.hashtags = hashtags
+        self.timeline_queue=timeline_queue
+
+
+    def subscribe(self,hashtag):
+
+        try:
+            start_new_thread(start_connection, (hashtag))
+        except Exception as e:
+            print(str(e))
+
+    def is_subscribe(self, hashtag):
+        return self.hashtags and hashtag in self.hashtags
+
+    def start_connection(self):
+
+        sock = socket(AF_INET, SOCK_STREAM)
+        sock.connect(self.server_addr)
+
+        while self.is_subscribe(hashtag):
+            data = sock.recv(1024)
+            if data and hashtag in self.hashtags:
+                timeline_queue.put(data)
+                print(data)
+
+        sock.close()
+
+
+    def exit(self):
+        self.server_addr,self.hashtags,self.timeline_queue = None,None,None
+
+
+
 
 class Client:
 
@@ -17,11 +61,13 @@ class Client:
         self.server_ip = None
         self.server_port = None
         self.client_socket = None
+        self.client_listener = None
+
         self.is_connected=False
 
         self.username = None
         self.hashtags = set()
-        self.timeline = []
+        self.timeline_queue = Queue()
 
 
     def run(self):
@@ -30,33 +76,44 @@ class Client:
         """
 
         # Validate provided arguments
-        if not self.is_valid_arguments(sys.argv[1:]):
-            return
+        if self.is_valid_arguments(sys.argv[1:]):
+            self.server_ip,self.server_port,self.username = sys.argv[1:]
+            self.server_port=int(self.server_port)
 
-        self.server_ip,self.server_port,self.username = sys.argv[1:]
-        self.server_port=int(self.server_port)
+            self.connect_socket()
+            self.client_listener=ClientListener(*sys.argv[1:3],self.hashtags,self.timeline_queue)
 
-        self.connect_socket()
+            while self.is_running():
+                command_input = input()
+                client.process_command(command_input)
 
-        while self.is_running():
-            print('get new command')
-            command_input = input()
-            client.process_command(command_input)
+        self.clean_up()
 
 
     def clean_up(self):
         """
-        Clean up data
+        Clean up client's data
         """
+
+        if self.client_socket:
+            self.client_socket.close()
+
+        if self.timeline_queue:
+            self.timeline_queue.empty()
+
+        if self.client_listener:
+            self.client_listener.exit()
 
         self.server_ip = None
         self.server_port = None
+
         self.client_socket = None
         self.is_connected=False
 
         self.username = None
-        self.hashtags = set()
-        self.timeline = []
+        self.hashtags = None
+
+        self.timeline_queue = None
 
 
     def is_running(self):
@@ -64,6 +121,10 @@ class Client:
 
     def send_message(self, message):
         self.client_socket.send(message.encode('utf-8'))
+
+    def receive_message(self):
+        message=self.client_socket.recv(1024)
+        return message.decode('utf-8')
 
     def is_valid_server_ip(self, ip):
         return ip and IPV4_REGEX.match(ip)
@@ -113,7 +174,6 @@ class Client:
             self.client_socket.connect((self.server_ip, self.server_port))
             if self.is_user_logged_in():
                 print("username illegal, connection refused.")
-                self.client_socket.close()
 
             else:
                 self.is_connected=True
@@ -121,7 +181,6 @@ class Client:
 
         except Exception as e:
             print("error: server ip invalid, connection refused.")
-            self.client_socket.close()
 
 
     def disconnect(self):
@@ -131,10 +190,8 @@ class Client:
         """
 
         self.send_message("exit " + self.username)
-        received_message = self.client_socket.recv(1024)
+        received_message = self.receive_message()
         if received_message:
-            self.client_socket.close()
-            self.clean_up()
             print("bye bye")
 
         else:
@@ -145,16 +202,14 @@ class Client:
 
         command,args=None,None
 
-        if command_input and len(command_input)>4:
+        if command_input and len(command_input)>3:
             command, *args = command_input.split(" ")
-            print('command', command)
-            print(args)
 
         if command == "tweet" and len(args) > 0:
             # message: hashtags message
             args = command_input.split("\"")
             message=args[1]
-            print('message', message)
+
             self.tweet(message, args[-1].strip())
         elif command == "subscribe" and len(args)==1:
             self.subscribe(args[0])
@@ -185,7 +240,7 @@ class Client:
         """
 
         self.send_message(f'$checkusername {self.username}')
-        received_message = self.client_socket.recv(1024)
+        received_message = self.receive_message()
         return received_message
 
 
@@ -214,8 +269,6 @@ class Client:
 
         # tweet to server
         self.send_message(f"$tweet {self.username} {hashtag} {message}")
-        received_message = self.client_socket.recv(1024)
-        print('received_message ', received_message)
 
 
     def subscribe(self, hashtag):
@@ -241,10 +294,11 @@ class Client:
 
         # subscribe to server
         self.send_message(f"$subscribe {self.username} {hashtag}")
-        received_message = self.client_socket.recv(1024)
+        received_message = self.receive_message()
 
         if received_message:
             self.hashtags.add(hashtag)
+            self.client_listener.subscribe(hashtag)
             print("operation success")
 
         else:
@@ -267,7 +321,7 @@ class Client:
             return
 
         self.send_message(f"$unsubscribe {self.username} {hashtag}")
-        received_message = self.client_socket.recv(1024)
+        received_message = self.receive_message()
 
         if received_message:
             if hashtag == '#ALL':
@@ -286,7 +340,10 @@ class Client:
         Print out timeline which is multiline of received
         messages from server.
         """
-        print(self.timeline)
+
+        timeline_queue = list(self.timeline_queue.queue)
+        for message in timeline_queue:
+            print(message)
 
 
     def get_users(self):
@@ -299,14 +356,15 @@ class Client:
         """
 
         self.send_message("$getusers")
-        received_message = json.loads(self.client_socket.recv(1024))
-        for user in received_message:
+        received_message = self.receive_message()
+        users = json.loads(received_message)
+        for user in users:
             print(user)
 
 
-    def get_tweets(self, user):
+    def get_tweets(self, username):
         """
-        Get all tweets of an user from server
+        Get all tweets of an username from server
         $gettweets <username>
 
         Response:
@@ -315,17 +373,22 @@ class Client:
             "no user <Username> in the system"
         """
 
-        self.send_message("$gettweets " + user)
-        received_message = json.loads(self.client_socket.recv(1024))
-        if received_message == "no user " + user + " in the system":
-            print(received_message)
-        else:
-            received_message = json.loads(received_message)
-            for tweet in received_message:
-                print(tweet)
+        self.send_message("$gettweets " + username)
+        is_done=False
+        messages=''
 
-    def exit(self):
-        print('exit')
+        while not is_done:
+            received_message = self.client_socket.recv(1024)
+
+            if received_message:
+                messages+=received_message
+
+                if received_message == 'Done':
+                    is_done=True
+
+        tweets = json.loads(messages)
+        print(tweet for tweet in tweets)
+
 
 
 if __name__=="__main__":
