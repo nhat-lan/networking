@@ -1,7 +1,7 @@
 import sys
 import json
 from socket import *
-import thread
+import _thread
 
 class Server:
     def __init__(self):
@@ -30,49 +30,52 @@ class Server:
     def execute_request(self, command, conn):
         try:
             if command:
-                command = command.split(' ')
-                if len(command) == 1 and command[0] == 'getusers':
+                command = command.decode("utf-8").split(' ')
+                if len(command) == 1 and command[0] == '$getusers':
                     self.get_users(conn)
                 elif len(command) == 2:
                     username = command[1]
-                    if command[0] == 'check_username':
-                        self.is_username_valid(username, conn)
-                    elif command[0] == 'gettweets':
+                    if command[0] == '$checkusername':
+                        self.is_user_logged_in(username, conn)
+                    elif command[0] == '$gettweets':
                         self.get_tweets(username)
-                    elif command[0] == 'exit':
+                    elif command[0] == '$exit':
                         self.exit(username)
                 elif len(command) == 3:
                     username = command[1]
                     hashtag = command[2]
-                    if command[0] == 'subscribe':
+                    if command[0] == '$subscribe':
                         self.subscribe(username, hashtag)
                     else:
                         self.unsubscribe(username, hashtag)
                 elif len(command) == 4:
-                    if command[0] == 'tweet':
+                    if command[0] == '$tweet':
                         self.tweet(command)
         except Exception as e:
-            print('Errors executing request {}'.format(e.message))
+            print('Errors executing request {}'.format(e))
 
-    def is_username_valid(self, username, connection):
+    def is_user_logged_in(self, username, connection):
         try:
             if not self.clients.get(username): #username is not in the system
                 # add the new client to the client list
                 self.clients.update({username: connection})
-                connection.send('Username is valid')
+                not_logged_in = 0
+                connection.send(bytes(str(not_logged_in), 'utf8'))
+                print(f'Connected to {username}')
             else:
-                connection.send('Username is taken')
-        except:
-            print("Errors trying to check username in the system")
+                logged_in = 1
+                connection.send(bytes(str(logged_in), 'utf8'))
+        except Exception as e:
+            print(f"Errors trying to check username in the system: {e}")
 
     def get_users(self, connection):
         try:
-            all_clients = self.clients.keys()
+            all_clients = {'clients': list(self.clients.keys())}
             all_client_json = json.dumps(all_clients)
-            connection.send(all_client_json)
+            connection.send(all_client_json.encode('utf-8'))
             print("Sent all users to client successully")
-        except:
-            print("Errors trying to send all users to {}".format(username))
+        except Exception as e:
+            print(f"Errors trying to send all users: {e}")
 
     def get_tweets(self, username):
         print('get_tweets')
@@ -94,20 +97,22 @@ class Server:
         '''
         for hashtag in hashtag_list:
             # get all subscriber that subscribed to #ALL
-            subscribers_to_ALL = self.hashtags.get('#ALL') if self.hashtags.get('#ALL') else []
+            subscribers_to_ALL = self.hashtags.get('#ALL') if self.hashtags.get('#ALL') else set()
 
             # get all subscribers that subscribed to the hashtag
-            cur_hashtag_subs = self.hashtags.get(hashtag) if self.hashtags.get(hashtag) else []
+            cur_hashtag_subs = self.hashtags.get(hashtag) if self.hashtags.get(hashtag) else set()
 
-            subscribers = cur_hashtag_subs.extend(x for x in subscribers_to_ALL if x not in cur_hashtag_subs)
+            subscribers = cur_hashtag_subs.union(x for x in subscribers_to_ALL if x not in cur_hashtag_subs)
 
             if subscribers:
                 for subscriber_username in subscribers:
                     client_connection = self.clients.get(subscriber_username)
                     if client_connection:
-                        client_connection.send(message)
-                        print('Message is sent to ' + subscriber_username)
-
+                        try:
+                            client_connection.send(message.encode('utf-8'))
+                            print('Message is sent to ' + subscriber_username)
+                        except:
+                            print('Errors tryign to broadcast message to subscribers')
 
 
     def tweet(self, command):
@@ -118,7 +123,7 @@ class Server:
             self.broadcast_message(message, hashtags)
             print('{} tweeted successfully'.format(username))
         except Exception as e:
-            print('Errors trying to tweet {}: {}'.format(message, e.message))
+            print('Errors trying to tweet {}: {}'.format(message, e))
 
     def subscribe(self, username, hashtag):
         subscribers = self.hashtags.get(hashtag)
@@ -144,7 +149,7 @@ class Server:
                 if not command:
                     break
             except (Exception) as err:
-                print('Got errors starting new client: {}'.format(err.message))
+                print('Got errors starting new client: {}'.format(err))
 
         conn.close()
 
@@ -171,9 +176,9 @@ class Server:
                 print("Connection from port#: " + str(addr[1]))
 
                 # connect to a new client
-                thread.start_new_thread(self.start_new_client, (self.connection_socket,))
+                _thread.start_new_thread(self.start_new_client, (self.connection_socket,))
             except (Exception) as e:
-                print("Error receiving new client ".format(e.message))
+                print("Error receiving new client ".format(e))
                 break
         self.connection_socket.close()
 
