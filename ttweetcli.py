@@ -63,11 +63,14 @@ class Client:
         try:
             self.client_socket = socket(AF_INET, SOCK_STREAM)
             self.client_socket.connect((self.server_ip, self.server_port))
+            if self.is_user_logged_in():
+                print("username illegal, connection refused.")
+                self.client_socket.close()
+                exit()
+            else:
+                print("username legal, connection established.")
         except:
-            print('Error Message: Server Not Found')
             exit()
-
-        print('Connection established.')
 
     # TODO
     # Function to end the connection
@@ -84,11 +87,14 @@ class Client:
     # Check which command to execute
     def process_command(self, commandline):
         commandList = commandline.split(" ")
-        command = commandList[1]
+        command = commandList[0]
+        print(commandList)
+        print('command', command)
         if command == "tweet":
             # message: hashtags message
             message = commandline.split("\"")[1]
-            self.tweet(message,commandList[-1])
+            print('message', message)
+            self.tweet(message, commandList[-1])
         elif command == "subscribe":
             self.subscribe(commandList[1])
         elif command == "unsubscribe":
@@ -112,7 +118,7 @@ class Client:
     def is_user_logged_in(self):
         self.client_socket.send('check_username ' + self.username)
         received_message = self.client_socket.recv(1024)
-        if (received_message == "Username is valid"):
+        if received_message == "Username is valid\n":
             return True
         else:
             return False
@@ -121,7 +127,7 @@ class Client:
     # 	Response:
     # 		Uploaded tweet successfully
     # 		Failed to tweet
-    def tweet(self, hashtag, message):
+    def tweet(self, message, hashtag):
 
         # check message format
         if not message:
@@ -139,6 +145,7 @@ class Client:
         # tweet to server
         self.client_socket.send("tweet " + self.username + " " + hashtag + " " + message)
         received_message = self.client_socket.recv(1024)
+        print('received_message ', received_message)
 
 
     # subscribe <username> <hashtag>
