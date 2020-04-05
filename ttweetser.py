@@ -2,11 +2,13 @@ import sys
 import json
 from socket import *
 import thread
-    
+
 class Server:
     def __init__(self):
         self.hashtags = {}
         self.clients = {}
+
+        self.message = None
         self.server_socket = None
         self.connection_socket = None
 
@@ -67,46 +69,46 @@ class Server:
         try:
             all_clients = self.clients.keys()
             all_client_json = json.dumps(all_clients)
-            connection.send(all_client_json) 
+            connection.send(all_client_json)
             print("Sent all users to client successully")
         except:
             print("Errors trying to send all users to {}".format(username))
- 
+
     def get_tweets(self, username):
         print('get_tweets')
 
     def exit(self, username):
         print('exit')
-    
+
 
     # broadcast to all users that subscribe to the hashtag
     def broadcast_message(self, message, hashtags):
-        hashtag_list = ['#' + hashtag for hashtag in hashtags.split('#') if hashtag] 
+        hashtag_list = ['#' + hashtag for hashtag in hashtags.split('#') if hashtag]
 
         '''
         Broadcast the message to all subscriber that subscribes to #ALL
         and deduplication on the subscribed messages.
-        Ex: a client A subscribes to #ALL and #1. 
+        Ex: a client A subscribes to #ALL and #1.
         Another client B run 'tweet "message" #1'
         => A should only output this message once
         '''
         for hashtag in hashtag_list:
             # get all subscriber that subscribed to #ALL
-            subscribers_to_ALL = self.hashtags.get('#ALL') if self.hashtags.get('#ALL') else [] 
-            
+            subscribers_to_ALL = self.hashtags.get('#ALL') if self.hashtags.get('#ALL') else []
+
             # get all subscribers that subscribed to the hashtag
             cur_hashtag_subs = self.hashtags.get(hashtag) if self.hashtags.get(hashtag) else []
-            
+
             subscribers = cur_hashtag_subs.extend(x for x in subscribers_to_ALL if x not in cur_hashtag_subs)
-        
+
             if subscribers:
                 for subscriber_username in subscribers:
                     client_connection = self.clients.get(subscriber_username)
                     if client_connection:
                         client_connection.send(message)
                         print('Message is sent to ' + subscriber_username)
-        
-        
+
+
 
     def tweet(self, command):
         username = command[1]
