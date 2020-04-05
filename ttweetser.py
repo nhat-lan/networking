@@ -1,12 +1,12 @@
 import sys
 from socket import *
 import thread
-    
+
 class Server:
     def __init__(self):
         self.hashtags = {}
         self.clients = {}
-        
+
         self.message = None
         self.server_socket = None
         self.connection_socket = None
@@ -35,7 +35,7 @@ class Server:
                 username = command[1]
                 if command[0] == 'check_username':
                     self.check_username(username, conn)
-                elif command[0] == 'timeline': 
+                elif command[0] == 'timeline':
                     self.get_timeline(username)
                 elif command[0] == 'gettweets':
                     self.get_tweets(username)
@@ -74,14 +74,14 @@ class Server:
         print('get_timeline')
 
     def get_users(self):
-        self.connection_socket.send("ALL USERS GO IN HERE") 
-        
+        self.connection_socket.send("ALL USERS GO IN HERE")
+
     def get_tweets(self, username):
         print('get_tweets')
 
     def exit(self, username):
         print('exit')
-    
+
 
     # broadcast to all users that subscribe to the hashtag
     def broadcast_message(self, message, hashtag):
@@ -101,9 +101,9 @@ class Server:
 
     '''
     tweet <username> <hashtag> <message>
-	Response:
-		Uploaded tweet successfully
-		Failed to tweet
+    Response:
+        Uploaded tweet successfully
+        Failed to tweet
     '''
     def tweet(self, command):
         username = command[1]
@@ -126,16 +126,16 @@ class Server:
             if self.hashtags.get(hashtag): #
                 self.hashtags.update({'hashtag': [username]})
         except:
-            print('Errors trying to subscribe to ', hashtags) 
+            print('Errors trying to subscribe to ', hashtags)
 
-        
+
 
     def unsubscribe(self, username, hashtag):
         print('unsubcribe')
 
     def start_new_client(self, conn):
         while 1:
-            try: 
+            try:
                 command = conn.recv(1024)
                 self.execute_command(command, conn)
                 if not command:

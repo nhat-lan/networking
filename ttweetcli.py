@@ -10,13 +10,60 @@ USERNAME_REGEX = re.compile("^[a-zA-Z0-9]+$")
 HASHTAG_REGEX = re.compile("^(#[a-zA-Z0-9]{1,14})((#[a-zA-Z0-9]{1,14}){0,4})$")
 
 class Client:
+
     def __init__(self):
+
+        # Initialize client state
         self.server_ip = None
         self.server_port = None
-        self.username = None
         self.client_socket = None
-        self.hashtags = set()
+        self.is_connected=False
 
+        self.username = None
+        self.hashtags = set()
+        self.timeline = []
+
+
+    def run(self):
+        """
+        Main function to run and take commands
+        """
+
+        # Validate provided arguments
+        if not self.is_valid_arguments(sys.argv[1:]):
+            return
+
+        self.server_ip,self.server_port,self.username = sys.argv[1:]
+        self.server_port=int(self.server_port)
+
+        self.connect_socket()
+
+        while self.is_running():
+            print('get new command')
+            command_input = input()
+            client.process_command(command_input)
+
+
+    def clean_up(self):
+        """
+        Clean up data
+        """
+
+        self.server_ip = None
+        self.server_port = None
+        self.client_socket = None
+        self.is_connected=False
+
+        self.username = None
+        self.hashtags = set()
+        self.timeline = []
+
+
+    def is_running(self):
+        return self.is_connected
+
+    def send_message(self, message):
+        self.client_socket.send(message.encode('utf-8'))
 
     def is_valid_server_ip(self, ip):
         return ip and IPV4_REGEX.match(ip)
@@ -31,103 +78,126 @@ class Client:
         return hashtag and HASHTAG_REGEX.match(hashtag)
 
 
-    def check_arguments(self, argv):
+    def is_valid_arguments(self, argv):
         # Check for correct number of arguments
         if len(argv) != 3:
             print("error: args should contain <ServerIP> <ServerPort> <Username>")
-            exit()
+            return False
 
         # Check for server_ip argument
-        if not self.is_valid_server_ip(argv[0]):
+        elif not self.is_valid_server_ip(argv[0]):
             print("error: server ip invalid, connection refused.")
-            exit()
+            return False
 
         # Check for server_port argument
 
-        if not self.is_valid_port(argv[1]):
+        elif not self.is_valid_port(argv[1]):
             print("error: server port invalid, connection refused.")
-            exit()
+            return False
 
         # Check for username
-        if not self.is_valid_username(argv[2]):
+        elif not self.is_valid_username(argv[2]):
             print("error: username has wrong format, connection refused.")
-            exit()
+            return False
 
-        self.server_ip,self.server_port,self.username = argv
-        self.server_port=int(self.server_port)
+        return True
 
 
-    # Function to connect to the server
     def connect_socket(self):
-        self.check_arguments(sys.argv[1:])
+        """
+        Create socket connects to server
+        """
+
+        self.client_socket = socket(AF_INET, SOCK_STREAM)
         try:
-            self.client_socket = socket(AF_INET, SOCK_STREAM)
             self.client_socket.connect((self.server_ip, self.server_port))
             if self.is_user_logged_in():
                 print("username illegal, connection refused.")
                 self.client_socket.close()
-                exit()
-            else:
-                print("username legal, connection established.")
-        except:
-            exit()
 
-    # TODO
-    # Function to end the connection
-	# Response:
-	# 	Exit out of the system successfully
+            else:
+                self.is_connected=True
+                print("username legal, connection established.")
+
+        except Exception as e:
+            print("error: server ip invalid, connection refused.")
+            self.client_socket.close()
+
+
     def disconnect(self):
-        self.client_socket.send("exit " + self.username)
+        """
+        Disconnect socket connect to server
+        Clean up client state
+        """
+
+        self.send_message("exit " + self.username)
         received_message = self.client_socket.recv(1024)
         if received_message:
             self.client_socket.close()
+            self.clean_up()
             print("bye bye")
-            exit()
+
+        else:
+            print(f'server error: cannot exit {self.username}')
 
     # Check which command to execute
-    def process_command(self, commandline):
-        commandList = commandline.split(" ")
-        command = commandList[0]
-        print(commandList)
-        print('command', command)
-        if command == "tweet":
+    def process_command(self, command_input):
+
+        command,args=None,None
+
+        if command_input and len(command_input)>4:
+            command, *args = command_input.split(" ")
+            print('command', command)
+            print(args)
+
+        if command == "tweet" and len(args) > 0:
             # message: hashtags message
-            message = commandline.split("\"")[1]
+            args = command_input.split("\"")
+            message=args[1]
             print('message', message)
-            self.tweet(message, commandList[-1])
-        elif command == "subscribe":
-            self.subscribe(commandList[1])
-        elif command == "unsubscribe":
-            self.unsubscribe(commandList[1])
-        elif command == "timeline":
+            self.tweet(message, args[-1].strip())
+        elif command == "subscribe" and len(args)==1:
+            self.subscribe(args[0])
+        elif command == "unsubscribe" and len(args)==1:
+            self.unsubscribe(args[0])
+        elif command == "timeline" and not args:
             self.timeline()
-        elif command == "getusers":
+        elif command == "getusers" and not args:
             self.get_users()
-        elif command == "gettweets":
-            self.get_tweets(commandList[1])
-        elif command == "exit":
+        elif command == "gettweets" and len(args)==1:
+            self.get_tweets(args[1])
+        elif command == "exit" and not args:
             self.disconnect()
+        else:
+            print('Command not found. Here is list of valid command:'\
+                ' tweet, subscribe, unsubscribe, timeline, getusers,'\
+                ' gettweets, exit')
 
-
-    # call sever and check if the user is already logged in
-    # check_user_name <username>
-    # 	response:
-    # 	valid_username
-    # 	invalid_username
 
     def is_user_logged_in(self):
-        self.client_socket.send('check_username ' + self.username)
-        received_message = self.client_socket.recv(1024)
-        if received_message == "Username is valid\n":
-            return True
-        else:
-            return False
+        """
+        Check if user is not online
+        $checkusername <username>
 
-    # tweet <username> <hashtag> <message>
-    # 	Response:
-    # 		Uploaded tweet successfully
-    # 		Failed to tweet
+        response:
+            0 : user is logged in
+            1 : user is not logged in
+        """
+
+        self.send_message(f'$checkusername {self.username}')
+        received_message = self.client_socket.recv(1024)
+        return received_message
+
+
     def tweet(self, message, hashtag):
+        """
+        Send tweet to server
+        $tweet <username> <hashtag> <message>
+
+        Response:
+            0: Failed to upload tweet
+            1: Uploaded tweet successfully
+        """
 
         # check message format
         if not message:
@@ -138,42 +208,68 @@ class Client:
             return
 
         # check hashtag format
-        if not self.is_valid_hashtag(hashtag):
+        if not self.is_valid_hashtag(hashtag) and hashtag != '#ALL':
             print("hashtag illegal format, connection refused.")
             return
 
         # tweet to server
-        self.client_socket.send("tweet " + self.username + " " + hashtag + " " + message)
+        self.send_message(f"$tweet {self.username} {hashtag} {message}")
         received_message = self.client_socket.recv(1024)
         print('received_message ', received_message)
 
 
-    # subscribe <username> <hashtag>
-	# Response:
-	# Subscribe to <hashtag> successfully
-	# Failed to subscribe
     def subscribe(self, hashtag):
-        # subscribe to server
-        self.client_socket.send("subscribe " + self.username + " " + hashtag)
-        received_message = self.client_socket.recv(1024)
+        """
+        Subscribe username to hashtag
+        $subscribe <username> <hashtag>
 
-        if received_message == "Subscribe to " + hashtag + " succesfully":
-            print("operation success")
-            self.hashtag.add(hastag)
-        else:
-            print("operation failed: sub " + hashtag + " failed, already exists or exceeds 3 limitation")
+        Response:
+            0: Failed to subscribe
+            1: Subscribe successfully
+        """
 
-    # unsubscribe <username> <hashtag>
-	# Response:
-	# 	Unsubscribed successfully
-    def unsubscribe(self, hashtag):
-        # Check if hashtag is not subscribed yet
-        if hashtag not in self.hashtags and hashtag!='#ALL':
+        # check hashtag format
+        if not self.is_valid_hashtag(hashtag):
+            print("hashtag illegal format, connection refused.")
             return
 
-        self.client_socket.send("unsubscribe " + self.username + " " + hashtag)
+        # Check if subscribed hashtags is not over limit (3)
+        if len(self.hashtags) >= 3:
+            print(f'operation failed: sub {hashtag} failed,' \
+                   ' already exists or exceeds 3 limitation')
+            return
+
+        # subscribe to server
+        self.send_message(f"$subscribe {self.username} {hashtag}")
         received_message = self.client_socket.recv(1024)
-        if received_message == "Unsubscribed successfully":
+
+        if received_message:
+            self.hashtags.add(hashtag)
+            print("operation success")
+
+        else:
+            print(f'operation failed: server failed')
+
+
+    def unsubscribe(self, hashtag):
+        """
+        Unsubscribe userhame with hashtag
+        $unsubscribe <username> <hashtag>
+
+        Response:
+            0: Failed to unsubscribe
+            1: Unsubscribed successfully
+        """
+
+        # Check if hashtag is not subscribed yet
+        if hashtag not in self.hashtags and \
+            (len(self.hashtags) and hashtag!='#ALL'):
+            return
+
+        self.send_message(f"$unsubscribe {self.username} {hashtag}")
+        received_message = self.client_socket.recv(1024)
+
+        if received_message:
             if hashtag == '#ALL':
                 self.hashtags.clear()
             else:
@@ -181,33 +277,46 @@ class Client:
 
             print("operation success")
 
+        else:
+            print('operation failed: server failed')
 
-    # timeline <username>
-	# Response:
-	# 	[ <sender_username>: <tweet message> <origin hashtag> ]
+
     def timeline(self):
-        self.client_socket.send("timeline " + self.username)
-        received_message = json.loads(self.client_socket.recv(1024))
-        for tweet in received_message:
-            print(tweet)
+        """
+        Print out timeline which is multiline of received
+        messages from server.
+        """
+        print(self.timeline)
 
-    # getusers
-	# Response:
-	# 	[username1, username2,...]
+
     def get_users(self):
-        self.client_socket.send("getusers")
+        """
+        Get list of users from server and print out to console
+        $getusers
+
+        Response:
+          [username1, username2,...]
+        """
+
+        self.send_message("$getusers")
         received_message = json.loads(self.client_socket.recv(1024))
         for user in received_message:
             print(user)
 
-    # gettweets <another person username>
-	# Response:
-	# 	[ <sender_username>: <tweet message> <origin hashtag> ]
-	# 	or
-	# 	"no user <Username> in the system"
+
     def get_tweets(self, user):
-        self.client_socket.send("gettweets " + user)
-        received_message = self.client_socket.recv(1024)
+        """
+        Get all tweets of an user from server
+        $gettweets <username>
+
+        Response:
+            [ <sender_username>: <tweet message> <origin hashtag> ]
+            or
+            "no user <Username> in the system"
+        """
+
+        self.send_message("$gettweets " + user)
+        received_message = json.loads(self.client_socket.recv(1024))
         if received_message == "no user " + user + " in the system":
             print(received_message)
         else:
@@ -215,9 +324,10 @@ class Client:
             for tweet in received_message:
                 print(tweet)
 
+    def exit(self):
+        print('exit')
 
-client = Client()
-client.connect_socket()
-while 1:
-    command = input()
-    client.process_command(command)
+
+if __name__=="__main__":
+    client = Client()
+    client.run()
