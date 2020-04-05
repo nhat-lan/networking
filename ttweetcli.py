@@ -16,7 +16,6 @@ class Client:
         self.username = None
         self.client_socket = None
 
-
     def is_valid_serverIP(self, ip):
         return ip and IPV4_REGEX.match(ip)
 

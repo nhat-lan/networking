@@ -54,21 +54,13 @@ class Server:
         else:
             print(command, 'Command is invalid')
 
-    def check_username(self, username, conn):
+    def check_username(self, username, connection):
         if not self.clients.get(username): #username is not in the system
             # add the new client to the client list
-            self.clients.update(
-                {
-                    username: {
-                        'connection': conn,
-                        'message_received': [],
-                        'subscribed_to': set()
-                    }
-                }
-            )
-            conn.send('Username is valid')
+            self.clients.update({username: connection})
+            connection.send('Username is valid')
         else:
-            conn.send('Username is taken')
+            connection.send('Username is taken')
 
     def get_timeline(self, username):
         print('get_timeline')
@@ -84,47 +76,40 @@ class Server:
     
 
     # broadcast to all users that subscribe to the hashtag
-    def broadcast_message(self, message, hashtag):
-        # get all subscribers that subscribed to the hashtag
-        subscribers = self.hashtags.get(hashtag)
-        print('hash', self.hashtags)
-        if subscribers:
-            print('sub', subscribers)
-            for subscriber_username in subscribers:
-                client = users.get(subscriber_username)
-                print('client', client)
-                if client:
-                    # obtain the client's connection to send message to them
-                    subcriber_connection = client.get('connection')
-                    subcriber_connection.send(message)
-                    print('Broadcast message ', message)
+    def broadcast_message(self, message, hashtags):
+        # if hashtags contains #ALL, broadcast to every client
+        if '#ALL' in hashtags:
+            for client_connection in self.clients.values():
+                client_connection.send(message) 
+        else:
+            hashtag_list = hashtags.split('(#)')
+            for hashtag in hashtag_list:
+                # get all subscribers that subscribed to the hashtag
+                subscribers = self.hashtags.get(hashtag)
+                if subscribers:
+                    for subscriber_username in subscribers:
+                        client_connection = self.clients.get(subscriber_username)
+                        if client_connection:
+                            client_connection.send(message)
+                            print('Messaged is sent to ' + subscriber_username)
 
-    '''
-    tweet <username> <hashtag> <message>
-	Response:
-		Uploaded tweet successfully
-		Failed to tweet
-    '''
+
     def tweet(self, command):
         username = command[1]
         hashtags = command[2]
         message = command[3]
         self.broadcast_message(message, hashtags)
-
-        print('User ', username, 'tweeted successfully')
+        print(username + ' tweeted successfully')
 
 
     def subscribe(self, username, hashtag):
         try:
-            user_data = self.clients.get(username)
-            if (user_data): # if username existed in the system
-                subscribed_to = user_data.get('subscribed_to')
-                subscribed_to.update(hashtag)
-                print(username + " subcribed to " + hashtags + " succesfully")
-                print(self.clients)
-
-            if self.hashtags.get(hashtag): #
-                self.hashtags.update({'hashtag': [username]})
+            subscribers = self.hashtags.get(hashtag)
+            if subscribers:
+                subscribers.add(username)
+                self.hashtags.update({hashtag: subscribers})
+            else:
+                self.hashtags.update({hashtag: {username}})
         except:
             print('Errors trying to subscribe to ', hashtags) 
 
