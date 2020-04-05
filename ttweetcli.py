@@ -15,13 +15,14 @@ class Client:
         self.server_port = None
         self.username = None
         self.client_socket = None
+        self.hashtags = set()
 
 
-    def is_valid_serverIP(self, ip):
+    def is_valid_server_ip(self, ip):
         return ip and IPV4_REGEX.match(ip)
 
     def is_valid_port(self, port):
-        return port and (port.isDigit()) and (0<=int(port)<=MAX_VALID_PORTS)
+        return port and (port.isdigit()) and (0<=int(port)<=MAX_VALID_PORTS)
 
     def is_valid_username(self, username):
         return username and USERNAME_REGEX.match(username)
@@ -32,33 +33,33 @@ class Client:
 
     def check_arguments(self, argv):
         # Check for correct number of arguments
-        if len(argv) != 4:
+        if len(argv) != 3:
             print("error: args should contain <ServerIP> <ServerPort> <Username>")
             exit()
 
-        # Check for serverIP argument
-        if not self.is_valid_serverIP(argv[1]):
+        # Check for server_ip argument
+        if not self.is_valid_server_ip(argv[0]):
             print("error: server ip invalid, connection refused.")
             exit()
 
-        # Check for serverPort argument
+        # Check for server_port argument
 
-        if not self.is_valid_port(argv[2]):
+        if not self.is_valid_port(argv[1]):
             print("error: server port invalid, connection refused.")
             exit()
 
         # Check for username
-        if not self.is_valid_username(argv[3]):
+        if not self.is_valid_username(argv[2]):
             print("error: username has wrong format, connection refused.")
             exit()
 
-        _,self.serverIP,self.serverPort,self.username = argv
-        self.serverPort=int(self.serverPort)
+        self.server_ip,self.server_port,self.username = argv
+        self.server_port=int(self.server_port)
 
 
     # Function to connect to the server
     def connect_socket(self):
-        self.check_arguments(sys.argv)
+        self.check_arguments(sys.argv[1:])
         try:
             self.client_socket = socket(AF_INET, SOCK_STREAM)
             self.client_socket.connect((self.server_ip, self.server_port))
@@ -81,7 +82,7 @@ class Client:
             exit()
 
     # Check which command to execute
-    def check_command(self, commandline):
+    def process_command(self, commandline):
         commandList = commandline.split(" ")
         command = commandList[1]
         if command == "tweet":
@@ -130,16 +131,15 @@ class Client:
             print("message length illegal, connection refused.")
             return
 
-
         # check hashtag format
-        if not is_valid_hashtag(hashtag):
+        if not self.is_valid_hashtag(hashtag):
             print("hashtag illegal format, connection refused.")
             return
-
 
         # tweet to server
         self.client_socket.send("tweet " + self.username + " " + hashtag + " " + message)
         received_message = self.client_socket.recv(1024)
+
 
     # subscribe <username> <hashtag>
 	# Response:
@@ -152,6 +152,7 @@ class Client:
 
         if received_message == "Subscribe to " + hashtag + " succesfully":
             print("operation success")
+            self.hashtag.add(hastag)
         else:
             print("operation failed: sub " + hashtag + " failed, already exists or exceeds 3 limitation")
 
@@ -159,12 +160,19 @@ class Client:
 	# Response:
 	# 	Unsubscribed successfully
     def unsubscribe(self, hashtag):
+        # Check if hashtag is not subscribed yet
+        if hashtag not in self.hashtags and hashtag!='#ALL':
+            return
+
         self.client_socket.send("unsubscribe " + self.username + " " + hashtag)
         received_message = self.client_socket.recv(1024)
         if received_message == "Unsubscribed successfully":
-            print("operation success")
+            if hashtag == '#ALL':
+                self.hashtags.clear()
+            else:
+                self.hashtags.remove(hashtag)
 
-        # TODO NOT SURE HOW TO HANDLE Unsubscribe command should have no effect if it refers to a # that has not been subscribed to previously.
+            print("operation success")
 
 
     # timeline <username>
@@ -203,6 +211,6 @@ class Client:
 
 client = Client()
 client.connect_socket()
-while True:
-    command = raw_input()
-    client.check_command(command)
+while 1:
+    command = input()
+    client.process_command(command)
