@@ -2,6 +2,7 @@ from socket import *
 import sys
 import json
 import re
+import ast
 
 from queue import Queue
 from copy import copy
@@ -180,6 +181,7 @@ class Client:
                 print("username legal, connection established.")
 
         except Exception as e:
+            # IF PORT DOESN'T EXISTS, IT GOES HERE TOO
             print("error: server ip invalid, connection refused.")
 
 
@@ -199,12 +201,14 @@ class Client:
 
     # Check which command to execute
     def process_command(self, command_input):
+        # print("Process command")
 
         command,args=None,None
         if command_input and len(command_input)>3:
             command, *args = command_input.split(" ")
 
         if command == "tweet" and len(args) > 0:
+            # print("Command is tweet")
             # message: hashtags message
             args = command_input.split("\"")
             message=args[1]
@@ -218,7 +222,7 @@ class Client:
         elif command == "getusers" and not args:
             self.get_users()
         elif command == "gettweets" and len(args)==1:
-            self.get_tweets(args[1])
+            self.get_tweets(args[0])
         elif command == "exit" and not args:
             self.disconnect()
         else:
@@ -366,7 +370,7 @@ class Client:
         $gettweets <username>
 
         Response:
-            [ <sender_username>: <tweet message> <origin hashtag> ]
+            [ <sender_username>: "<tweet message>" <origin hashtag> ]
             or
             "no user <Username> in the system"
         """
@@ -376,16 +380,16 @@ class Client:
         messages=''
 
         while not is_done:
-            received_message = self.client_socket.recv(1024)
+            received_message = self.client_socket.recv(1024).decode('utf-8')
 
             if received_message:
-                messages+=received_message
-
                 if received_message == 'Done':
                     is_done=True
-
-        tweets = json.loads(messages)
-        print(tweet for tweet in tweets)
+                else:
+                    messages+=received_message
+        tweets = ast.literal_eval(messages)
+        for tweet in tweets:
+            print(tweet)
 
 
 
