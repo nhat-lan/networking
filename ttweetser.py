@@ -32,8 +32,6 @@ class Server:
             if command_input:
                 command_input = command_input.decode("utf-8")
                 command, *args = command_input.split(' ')
-                print(command)
-                print(args)
                 if command == '$getusers':
                     self.get_users(conn)
                 elif command == '$checkusername' and len(args) == 1:
@@ -48,7 +46,6 @@ class Server:
                     self.unsubscribe(args[0], args[1], conn)
                 elif command == '$tweet':
                     message = " ".join(args[2:])
-                    print(message)
                     self.tweet([args[0], args[1], message])
         except Exception as e:
             print('Errors executing request {}'.format(e))
@@ -77,15 +74,15 @@ class Server:
             print(f"Errors trying to send all users: {e}")
 
     def get_tweets(self, username, connection):
-        tweets = self.tweet.get(username)
+        tweets = self.tweets.get(username)
         formated_tweets = []
-        if not tweets:
+        if not tweets and self.clients.get(username) == None:
             formated_tweets.append(f'no user {username} in the system')
-        else:
+        elif tweets:
             for tweet in tweets:
                 formated_tweets.append(f'{username}: \"{tweet[0]}\" {tweet[1]}')
         try:
-            connection.send(json.dumps(formated_tweets).encode('utf-8'))
+            connection.send(str(formated_tweets).encode('utf-8'))
             message = 'Done'
             connection.send(message.encode('utf-8'))
             print(f"Sent all tweets from {username} successfully")
@@ -126,7 +123,6 @@ class Server:
 
 
     def tweet(self, command):
-        print("tweet")
         username = command[0]
         hashtags = command[1]
         message = command[2]

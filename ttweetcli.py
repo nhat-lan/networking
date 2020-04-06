@@ -2,6 +2,7 @@ from socket import *
 import sys
 import json
 import re
+import ast
 
 from queue import Queue
 from copy import copy
@@ -222,7 +223,7 @@ class Client:
         elif command == "getusers" and not args:
             self.get_users()
         elif command == "gettweets" and len(args)==1:
-            self.get_tweets(args[1])
+            self.get_tweets(args[0])
         elif command == "exit" and not args:
             self.disconnect()
         else:
@@ -271,7 +272,6 @@ class Client:
 
         # tweet to server
         self.send_message(f"$tweet {self.username} {hashtag} {message}")
-        print("Tweeted")
 
 
     def subscribe(self, hashtag):
@@ -381,16 +381,16 @@ class Client:
         messages=''
 
         while not is_done:
-            received_message = self.client_socket.recv(1024)
+            received_message = self.client_socket.recv(1024).decode('utf-8')
 
             if received_message:
                 if received_message == 'Done':
                     is_done=True
                 else:
                     messages+=received_message
-
-        tweets = json.loads(messages)
-        print(tweet for tweet in tweets)
+        tweets = ast.literal_eval(messages)
+        for tweet in tweets:
+            print(tweet)
 
 
 
