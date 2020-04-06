@@ -7,7 +7,7 @@ class Server:
     def __init__(self):
         self.hashtags = {}
         self.clients = {}
-
+        self.tweets = {}
         self.message = None
         self.server_socket = None
         self.connection_socket = None
@@ -45,9 +45,9 @@ class Server:
                     username = command[1]
                     hashtag = command[2]
                     if command[0] == '$subscribe':
-                        self.subscribe(username, hashtag)
-                    else:
-                        self.unsubscribe(username, hashtag)
+                        self.subscribe(username, hashtag, conn)
+                    elif command[0] == '$unsubscribe':
+                        self.unsubscribe(username, hashtag, conn)
                 elif len(command) == 4:
                     if command[0] == '$tweet':
                         self.tweet(command)
@@ -95,15 +95,13 @@ class Server:
         Another client B run 'tweet "message" #1'
         => A should only output this message once
         '''
+
         for hashtag in hashtag_list:
             # get all subscriber that subscribed to #ALL
             subscribers_to_ALL = self.hashtags.get('#ALL') if self.hashtags.get('#ALL') else set()
-
             # get all subscribers that subscribed to the hashtag
             cur_hashtag_subs = self.hashtags.get(hashtag) if self.hashtags.get(hashtag) else set()
-
             subscribers = cur_hashtag_subs.union(x for x in subscribers_to_ALL if x not in cur_hashtag_subs)
-
             if subscribers:
                 for subscriber_username in subscribers:
                     client_connection = self.clients.get(subscriber_username)
@@ -111,8 +109,8 @@ class Server:
                         try:
                             client_connection.send(message.encode('utf-8'))
                             print('Message is sent to ' + subscriber_username)
-                        except:
-                            print('Errors tryign to broadcast message to subscribers')
+                        except Exception as e:
+                            print(f'Errors trying to broadcast message to subscribers {e}')
 
 
     def tweet(self, command):
@@ -120,22 +118,35 @@ class Server:
         hashtags = command[2]
         message = command[3]
         try:
+            prev_tweets = self.tweets.get(username)
+            if prev_tweets:
+                # if user has tweeted before, append to the list
+                prev_tweets.append(message)
+                self.tweets.update({username: prev_tweets})
+            else:
+                self.tweets.update({username: [message]})
+            print('before broadcasting')
             self.broadcast_message(message, hashtags)
             print('{} tweeted successfully'.format(username))
         except Exception as e:
             print('Errors trying to tweet {}: {}'.format(message, e))
 
-    def subscribe(self, username, hashtag):
+    def subscribe(self, username, hashtag, connection):
         subscribers = self.hashtags.get(hashtag)
         if subscribers:
             subscribers.add(username)
             self.hashtags.update({hashtag: subscribers})
         else:
             self.hashtags.update({hashtag: {username}})
+        try:
+            success = "1"
+            connection.send(success.encode('utf-8'))
+            print('{} subscribed to {} successfully'.format(username, hashtag))
+        except Exception as e:
+            print(f'{username} failed to subscribe to {hashtag}')
+            
 
-        print('{} subscribed to {} successfully'.format(username, hashtag))
-
-    def unsubscribe(self, username, hashtag):
+    def unsubscribe(self, username, hashtag, connection):
         subscribers = self.hashtags.get(hashtag)
         if subscribers:
             subscribers.remove(username) if username in subscribers else None
