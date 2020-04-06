@@ -31,6 +31,7 @@ class Server:
         try:
             if command:
                 command = command.decode("utf-8").split(' ')
+                print(command)
                 if len(command) == 1 and command[0] == '$getusers':
                     self.get_users(conn)
                 elif len(command) == 2:
@@ -38,7 +39,7 @@ class Server:
                     if command[0] == '$checkusername':
                         self.is_user_logged_in(username, conn)
                     elif command[0] == '$gettweets':
-                        self.get_tweets(username)
+                        self.get_tweets(username, conn)
                     elif command[0] == '$exit':
                         self.exit(username)
                 elif len(command) == 3:
@@ -77,8 +78,21 @@ class Server:
         except Exception as e:
             print(f"Errors trying to send all users: {e}")
 
-    def get_tweets(self, username):
-        print('get_tweets')
+    def get_tweets(self, username, connection):
+        tweets = self.tweet.get(username)
+        formated_tweets = []
+        if not tweets:
+            formated_tweets.append(f'no user {username} in the system')
+        else:
+            for tweet in tweets:
+                formated_tweets.append(f'{username}: \"{tweet[0]}\" {tweet[1]}')
+        try:
+            connection.send(json.dumps(formated_tweets).encode('utf-8'))
+            message = 'Done'
+            connection.send(message.encode('utf-8'))
+            print(f"Sent all tweets from {username} successfully")
+        except Exception as e:
+            print(f'Error getting tweets: {e}')
 
     def exit(self, username):
         print('exit')
@@ -121,10 +135,10 @@ class Server:
             prev_tweets = self.tweets.get(username)
             if prev_tweets:
                 # if user has tweeted before, append to the list
-                prev_tweets.append(message)
+                prev_tweets.append([message, hashtags])
                 self.tweets.update({username: prev_tweets})
             else:
-                self.tweets.update({username: [message]})
+                self.tweets.update({username: [[message, hashtags]]})
             print('before broadcasting')
             self.broadcast_message(message, hashtags)
             print('{} tweeted successfully'.format(username))

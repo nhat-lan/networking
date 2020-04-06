@@ -180,6 +180,7 @@ class Client:
                 print("username legal, connection established.")
 
         except Exception as e:
+            # IF PORT DOESN'T EXISTS, IT GOES HERE TOO
             print("error: server ip invalid, connection refused.")
 
 
@@ -199,12 +200,14 @@ class Client:
 
     # Check which command to execute
     def process_command(self, command_input):
+        # print("Process command")
 
         command,args=None,None
         if command_input and len(command_input)>3:
             command, *args = command_input.split(" ")
 
         if command == "tweet" and len(args) > 0:
+            # print("Command is tweet")
             # message: hashtags message
             args = command_input.split("\"")
             message=args[1]
@@ -366,7 +369,7 @@ class Client:
         $gettweets <username>
 
         Response:
-            [ <sender_username>: <tweet message> <origin hashtag> ]
+            [ <sender_username>: "<tweet message>" <origin hashtag> ]
             or
             "no user <Username> in the system"
         """
@@ -379,10 +382,10 @@ class Client:
             received_message = self.client_socket.recv(1024)
 
             if received_message:
-                messages+=received_message
-
                 if received_message == 'Done':
                     is_done=True
+                else:
+                    messages+=received_message
 
         tweets = json.loads(messages)
         print(tweet for tweet in tweets)
