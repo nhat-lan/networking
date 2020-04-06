@@ -201,7 +201,6 @@ class Client:
     def process_command(self, command_input):
 
         command,args=None,None
-
         if command_input and len(command_input)>3:
             command, *args = command_input.split(" ")
 
@@ -209,7 +208,6 @@ class Client:
             # message: hashtags message
             args = command_input.split("\"")
             message=args[1]
-
             self.tweet(message, args[-1].strip())
         elif command == "subscribe" and len(args)==1:
             self.subscribe(args[0])
@@ -241,7 +239,7 @@ class Client:
 
         self.send_message(f'$checkusername {self.username}')
         received_message = self.receive_message()
-        return received_message
+        return int(received_message)
 
 
     def tweet(self, message, hashtag):
