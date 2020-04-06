@@ -27,31 +27,29 @@ class Server:
             print("The port number is invalid, the range of port numbers is 13000 to 14000")
             sys.exit()
 
-    def execute_request(self, command, conn):
+    def execute_request(self, command_input, conn):
         try:
-            if command:
-                command = command.decode("utf-8").split(' ')
+            if command_input:
+                command_input = command_input.decode("utf-8")
+                command, *args = command_input.split(' ')
                 print(command)
-                if len(command) == 1 and command[0] == '$getusers':
+                print(args)
+                if command == '$getusers':
                     self.get_users(conn)
-                elif len(command) == 2:
-                    username = command[1]
-                    if command[0] == '$checkusername':
-                        self.is_user_logged_in(username, conn)
-                    elif command[0] == '$gettweets':
-                        self.get_tweets(username, conn)
-                    elif command[0] == '$exit':
-                        self.exit(username)
-                elif len(command) == 3:
-                    username = command[1]
-                    hashtag = command[2]
-                    if command[0] == '$subscribe':
-                        self.subscribe(username, hashtag, conn)
-                    elif command[0] == '$unsubscribe':
-                        self.unsubscribe(username, hashtag, conn)
-                elif len(command) == 4:
-                    if command[0] == '$tweet':
-                        self.tweet(command)
+                elif command == '$checkusername' and len(args) == 1:
+                    self.is_user_logged_in(args[0], conn)
+                elif command == '$gettweets' and len(args) == 1:
+                    self.get_tweets(args[0], conn)
+                elif command == '$exit' and len(args) == 1:
+                    self.exit(args[0])
+                elif command == '$subscribe' and len(args) == 2:
+                    self.subscribe(args[0], args[1], conn)
+                elif command == '$unsubscribe':
+                    self.unsubscribe(args[0], args[1], conn)
+                elif command == '$tweet':
+                    message = " ".join(args[2:])
+                    print(message)
+                    self.tweet([args[0], args[1], message])
         except Exception as e:
             print('Errors executing request {}'.format(e))
 
@@ -128,9 +126,10 @@ class Server:
 
 
     def tweet(self, command):
-        username = command[1]
-        hashtags = command[2]
-        message = command[3]
+        print("tweet")
+        username = command[0]
+        hashtags = command[1]
+        message = command[2]
         try:
             prev_tweets = self.tweets.get(username)
             if prev_tweets:
