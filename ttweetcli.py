@@ -14,7 +14,7 @@ import threading
 MAX_VALID_PORTS = (2**16)-1
 IPV4_REGEX = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
 USERNAME_REGEX = re.compile("^[a-zA-Z0-9]+$")
-HASHTAG_REGEX = re.compile("^(#[a-zA-Z0-9]{2,14})((#[a-zA-Z0-9]{2,14}){0,4})$")
+HASHTAG_REGEX = re.compile("^(#[a-zA-Z0-9]{1,14})((#[a-zA-Z0-9]{1,14}){0,4})$")
 
 class ClientListener:
 
