@@ -3,14 +3,21 @@ import json
 from socket import *
 import _thread
 
+
 class Server:
     def __init__(self):
         self.hashtags = {}
         self.clients = {}
         self.tweets = {}
-        self.message = None
         self.server_socket = None
-        self.connection_socket = None
+        self.subscriptions = {}
+
+    def add_new_user(self, username, connection):
+        self.clients.update({username: connection})
+        self.tweets.update({username: []})
+
+    def send_message(self, message, connection):
+        connection.sendall(message.encode('utf-8'))
 
     def create_connection(self, server_port):
         try:
@@ -24,7 +31,8 @@ class Server:
 
     def is_port_valid(self, server_port):
         if server_port < 13000 or server_port > 14000:
-            print("The port number is invalid, the range of port numbers is 13000 to 14000")
+            print(
+                "The port number is invalid, the range of port numbers is 13000 to 14000")
             sys.exit()
 
     def execute_request(self, command_input, conn):
@@ -34,12 +42,12 @@ class Server:
                 command, *args = command_input.split(' ')
                 if command == '$getusers':
                     self.get_users(conn)
-                elif command == '$checkusername' and len(args) == 1:
-                    self.is_user_logged_in(args[0], conn)
+                elif command == '$signin' and len(args) == 1:
+                    self.sign_in(args[0], conn)
                 elif command == '$gettweets' and len(args) == 1:
                     self.get_tweets(args[0], conn)
                 elif command == '$exit' and len(args) == 1:
-                    self.exit(args[0])
+                    self.client_exit(args[0])
                 elif command == '$subscribe' and len(args) == 2:
                     self.subscribe(args[0], args[1], conn)
                 elif command == '$unsubscribe':
@@ -50,52 +58,60 @@ class Server:
         except Exception as e:
             print('Errors executing request {}'.format(e))
 
-    def is_user_logged_in(self, username, connection):
+    def sign_in(self, username, connection):
+        is_signed_in = 0
         try:
-            if not self.clients.get(username): #username is not in the system
+            if not self.clients.get(username):  # username is not in the system
                 # add the new client to the client list
-                self.clients.update({username: connection})
-                not_logged_in = 0
-                connection.send(bytes(str(not_logged_in), 'utf8'))
+                self.add_new_user(username, connection)
+                is_signed_in = 1
                 print(f'Connected to {username}')
-            else:
-                logged_in = 1
-                connection.send(bytes(str(logged_in), 'utf8'))
+
+            self.send_message(f'{is_signed_in}', connection)
         except Exception as e:
             print(f"Errors trying to check username in the system: {e}")
 
     def get_users(self, connection):
         try:
-            all_clients = {'clients': list(self.clients.keys())}
+            all_clients = list(self.clients.keys())
             all_client_json = json.dumps(all_clients)
-            connection.send(all_client_json.encode('utf-8'))
-            print("Sent all users to client successully")
+            self.send_message(all_client_json, connection)
+            print("Sent all users to client successfully")
         except Exception as e:
             print(f"Errors trying to send all users: {e}")
 
     def get_tweets(self, username, connection):
-        tweets = self.tweets.get(username)
+
         formated_tweets = []
-        if not tweets and self.clients.get(username) == None:
+        if username in self.clients:
             formated_tweets.append(f'no user {username} in the system')
-        elif tweets:
+        else:
+            tweets = self.tweets.get(username)
             for tweet in tweets:
-                formated_tweets.append(f'{username}: \"{tweet[0]}\" {tweet[1]}')
+                formated_tweets.append(
+                    f'{username}: \"{tweet[0]}\" {tweet[1]}')
         try:
-            connection.send(str(formated_tweets).encode('utf-8'))
-            message = 'Done'
-            connection.send(message.encode('utf-8'))
+            self.send_message(json.dumps(formated_tweets), connection)
+            self.send_message('Done', connection)
             print(f"Sent all tweets from {username} successfully")
         except Exception as e:
             print(f'Error getting tweets: {e}')
 
-    def exit(self, username):
-        print('exit')
+    def client_exit(self, username):
+        print(f'{username} exit')
+        if self.clients and username in self.clients:
+            del self.clients[username]
+        if self.tweets and username in self.tweets:
+            del self.tweets[username]
+        if self.hashtags:
+            for hashtag, subscribers in self.hashtags.items():
+                if username in subscribers:
+                    subscribers.remove(username)
+                    del self.subscription[(hashtag, username)]
 
-
-    # broadcast to all users that subscribe to the hashtag
     def broadcast_message(self, message, hashtags):
-        hashtag_list = ['#' + hashtag for hashtag in hashtags.split('#') if hashtag]
+        hashtag_set = set([
+            '#' + hashtag for hashtag in hashtags.split('#') if ('#'+hashtag) in self.hashtags])
 
         '''
         Broadcast the message to all subscriber that subscribes to #ALL
@@ -105,22 +121,24 @@ class Server:
         => A should only output this message once
         '''
 
-        for hashtag in hashtag_list:
-            # get all subscriber that subscribed to #ALL
-            subscribers_to_ALL = self.hashtags.get('#ALL') if self.hashtags.get('#ALL') else set()
-            # get all subscribers that subscribed to the hashtag
-            cur_hashtag_subs = self.hashtags.get(hashtag) if self.hashtags.get(hashtag) else set()
-            subscribers = cur_hashtag_subs.union(x for x in subscribers_to_ALL if x not in cur_hashtag_subs)
-            if subscribers:
-                for subscriber_username in subscribers:
-                    client_connection = self.clients.get(subscriber_username)
-                    if client_connection:
-                        try:
-                            client_connection.send(message.encode('utf-8'))
-                            print('Message is sent to ' + subscriber_username)
-                        except Exception as e:
-                            print(f'Errors trying to broadcast message to subscribers {e}')
+        # get all subscriber that subscribed to #ALL
+        if '#ALL' in self.hashtags:
+            hashtag_set.add('#ALL')
 
+        subscription = {}
+        for hashtag in hashtag_set:
+            for username in self.hashtags.get(hashtag):
+                subscription[username] = self.subscriptions.get(
+                    (hashtag, username))
+
+        for username, connection in subscription.items():
+            if connection:
+                try:
+                    self.send_message(message, connection)
+                    print('Message is sent to ' + username)
+                except Exception as e:
+                    print(
+                        f'Errors trying to broadcast message to subscribers {e}')
 
     def tweet(self, command):
         username = command[0]
@@ -147,27 +165,26 @@ class Server:
             self.hashtags.update({hashtag: subscribers})
         else:
             self.hashtags.update({hashtag: {username}})
-        try:
-            success = "1"
-            connection.send(success.encode('utf-8'))
-            print('{} subscribed to {} successfully'.format(username, hashtag))
-        except Exception as e:
-            print(f'{username} failed to subscribe to {hashtag}')
-            
+
+        self.subscriptions.update({(hashtag, username): connection})
+        print('{} subscribed to {} successfully'.format(username, hashtag))
 
     def unsubscribe(self, username, hashtag, connection):
         subscribers = self.hashtags.get(hashtag)
-        if subscribers:
-            subscribers.remove(username) if username in subscribers else None
+        if subscribers and username in subscribers:
+            subscribers.remove(username)
+            self.subscriptions.remove((hashtag, username))
+
         print('{} unsubscribed from {} successfully'.format(username, hashtag))
 
     def start_new_client(self, conn):
         while 1:
             try:
                 command = conn.recv(1024)
-                self.execute_request(command, conn)
                 if not command:
                     break
+                self.execute_request(command, conn)
+
             except (Exception) as err:
                 print('Got errors starting new client: {}'.format(err))
 
@@ -178,7 +195,8 @@ class Server:
         # check if input from comand line is valid
         args = sys.argv
         if len(args) < 2:
-            print("Server: there are argument problems, please try to input the arguments as following:")
+            print(
+                "Server: there are argument problems, please try to input the arguments as following:")
             print("python ttweetser.py <ServerPort>")
             sys.exit()
         try:
@@ -192,15 +210,30 @@ class Server:
 
         while 1:
             try:
-                self.connection_socket, addr = self.server_socket.accept()
+                connection_socket, addr = self.server_socket.accept()
                 print("Connection from port#: " + str(addr[1]))
-
                 # connect to a new client
-                _thread.start_new_thread(self.start_new_client, (self.connection_socket,))
+                _thread.start_new_thread(
+                    self.start_new_client, (connection_socket,))
             except (Exception) as e:
                 print("Error receiving new client ".format(e))
                 break
-        self.connection_socket.close()
+
+        self.clean_up()
+
+    def clean_up(self):
+        if self.server_socket:
+            self.server_socket.close()
+        if self.hashtags:
+            self.hashtags.clear()
+        if self.clients:
+            self.clients.clear()
+        if self.tweets:
+            self.tweets.clear()
+        if self.subscriptions:
+            self.subscriptions.clear()
+        self.hashtags = self.clients = self.tweets, self.server_socket = None
+
 
 server = Server()
 server.run_server()
