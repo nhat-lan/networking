@@ -1,7 +1,7 @@
 import sys
 import json
 from socket import *
-import _thread
+import threading
 
 
 class Server:
@@ -10,7 +10,6 @@ class Server:
         self.clients = {}
         self.tweets = {}
         self.server_socket = None
-        self.subscriptions = {}
 
     def add_new_user(self, username, connection):
         self.clients.update({username: connection})
@@ -107,7 +106,6 @@ class Server:
             for hashtag, subscribers in self.hashtags.items():
                 if username in subscribers:
                     subscribers.remove(username)
-                    del self.subscription[(hashtag, username)]
 
     def broadcast_message(self, message, hashtags):
         hashtag_set = set([
@@ -125,17 +123,17 @@ class Server:
         if '#ALL' in self.hashtags:
             hashtag_set.add('#ALL')
 
-        subscription = {}
+        subscribers = set()
         for hashtag in hashtag_set:
-            for username in self.hashtags.get(hashtag):
-                subscription[username] = self.subscriptions.get(
-                    (hashtag, username))
+            if hashtag in self.hashtags:
+                subscribers = subscribers.union(self.hashtags.get(hashtag))
 
-        for username, connection in subscription.items():
+        for subscriber in subscribers:
+            connection = self.clients.get(subscriber)
             if connection:
                 try:
                     self.send_message(message, connection)
-                    print('Message is sent to ' + username)
+                    print(f'Message {message} is sent to {subscriber}')
                 except Exception as e:
                     print(
                         f'Errors trying to broadcast message to subscribers {e}')
@@ -152,28 +150,29 @@ class Server:
                 self.tweets.update({username: prev_tweets})
             else:
                 self.tweets.update({username: [[message, hashtags]]})
-            print('before broadcasting')
+
             self.broadcast_message(message, hashtags)
             print('{} tweeted successfully'.format(username))
         except Exception as e:
             print('Errors trying to tweet {}: {}'.format(message, e))
 
     def subscribe(self, username, hashtag, connection):
-        subscribers = self.hashtags.get(hashtag)
-        if subscribers:
-            subscribers.add(username)
-            self.hashtags.update({hashtag: subscribers})
-        else:
-            self.hashtags.update({hashtag: {username}})
+        subscribers = self.hashtags.get(
+            hashtag) if hashtag in self.hashtags else set()
+        subscribers.add(username)
+        self.hashtags.update({hashtag: subscribers})
 
-        self.subscriptions.update({(hashtag, username): connection})
         print('{} subscribed to {} successfully'.format(username, hashtag))
 
     def unsubscribe(self, username, hashtag, connection):
-        subscribers = self.hashtags.get(hashtag)
-        if subscribers and username in subscribers:
-            subscribers.remove(username)
-            self.subscriptions.remove((hashtag, username))
+        hashtags_set = self.hashtags.keys(
+        ) if hashtag == '#ALL' else set([hashtag])
+
+        for _hashtag in hashtags_set:
+            subscribers = self.hashtags.get(_hashtag)
+
+            if subscribers and username in subscribers:
+                subscribers.remove(username)
 
         print('{} unsubscribed from {} successfully'.format(username, hashtag))
 
@@ -213,8 +212,9 @@ class Server:
                 connection_socket, addr = self.server_socket.accept()
                 print("Connection from port#: " + str(addr[1]))
                 # connect to a new client
-                _thread.start_new_thread(
-                    self.start_new_client, (connection_socket,))
+                x = threading.Thread(
+                    target=self.start_new_client, args=(connection_socket,), daemon=True)
+                x.start()
             except (Exception) as e:
                 print("Error receiving new client ".format(e))
                 break
@@ -230,8 +230,7 @@ class Server:
             self.clients.clear()
         if self.tweets:
             self.tweets.clear()
-        if self.subscriptions:
-            self.subscriptions.clear()
+
         self.hashtags = self.clients = self.tweets, self.server_socket = None
 
 

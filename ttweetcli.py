@@ -15,40 +15,74 @@ HASHTAG_REGEX = re.compile("^(#[a-zA-Z0-9]{1,14})((#[a-zA-Z0-9]{1,14}){0,4})$")
 
 class ClientListener:
 
-    def __init__(self, addr, timeline_queue, hashtags):
+    def __init__(self, addr, timeline_queue):
         self.server_addr = addr
         self.timeline_queue = timeline_queue
-        self.hashtags = hashtags
+        self.connection_socket = socket(AF_INET, SOCK_STREAM)
 
-    def subscribe(self, hashtag, username):
+    def sign_in(self, username):
+        """
+        Sign in username and establish listener connection.
+        $signin <username>
+
+        response:
+            0 : failure, user is already signed in
+            1 : signed in successfully
+        """
+
+        is_signed_in = 0
+        try:
+            self.connection_socket.connect((self.server_addr))
+            self.connection_socket.sendall(
+                f'$signin {username}'.encode('utf-8'))
+            received_message = self.connection_socket.recv(
+                1024).decode('utf-8')
+
+            is_signed_in = int(received_message)
+        except Exception as e:
+            print(e)
+            pass
+        finally:
+            return is_signed_in
+
+    def start_listener(self):
+        """
+        Start listener thread running asynchronousely
+
+        """
 
         try:
             x = threading.Thread(
-                target=self.start_connection, args=(hashtag, username,), daemon=True)
+                target=self.listen, daemon=True)
             x.start()
         except Exception as e:
             pass
             # print(str(e))
 
-    def is_subscribed(self, hashtag):
-        return self.hashtags and hashtag in self.hashtags
+    def listen(self):
+        """
+        Client listener loop waiting for new messages from server
+        """
 
-    def start_connection(self, hashtag, username):
-        sock = socket(AF_INET, SOCK_STREAM)
-        sock.connect(self.server_addr)
-        sock.send(f"$subscribe {username} {hashtag}".encode('utf-8'))
-
-        while self.is_subscribed(hashtag):
-            data = sock.recv(1024)
-            if data and self.is_subscribed(hashtag):
-                message = data.decode('utf-8')
-                self.timeline_queue.put(message)
-                print(message)
-
-        sock.close()
+        try:
+            while 1:
+                data = self.connection_socket.recv(1024)
+                if data:
+                    message = data.decode('utf-8')
+                    self.timeline_queue.put(message)
+                    print(message)
+        except Exception as e:
+            # print(e)
+            pass
 
     def exit(self):
-        self.server_addr = self.timeline_queue = self.hashtags = None
+        """
+        Exit the client listener and clean up data
+        """
+
+        if self.connection_socket:
+            self.connection_socket.close()
+        self.server_addr = self.timeline_queue = self.connection_socket = None
 
 
 class Client:
@@ -106,9 +140,15 @@ class Client:
         self.is_connected = False
 
     def is_running(self):
+        """
+        Return running status of client connection to server
+        """
         return self.is_connected
 
     def send_message(self, message):
+        """
+        Helper function to send encoded message to server
+        """
         try:
             self.client_socket.sendall(message.encode('utf-8'))
         except Exception as e:
@@ -116,6 +156,9 @@ class Client:
             pass
 
     def receive_message(self):
+        """
+        Helper function to receive and decode message to server
+        """
         message = ''
         try:
             message = self.client_socket.recv(1024)
@@ -125,42 +168,74 @@ class Client:
         return message.decode('utf-8')
 
     def is_valid_server_ip(self, ip):
+        """
+        Helper function to test regex matching for ip
+        """
         return ip and IPV4_REGEX.match(ip)
 
     def is_valid_port(self, port):
+        """
+        Helper function to test regex matching for port
+        """
         return port and (port.isdigit()) and (0 <= int(port) <= MAX_VALID_PORTS)
 
     def is_valid_username(self, username):
+        """
+        Helper function to test regex matching for username
+        """
         return username and USERNAME_REGEX.match(username)
 
     def is_valid_hashtag(self, hashtag):
+        """
+        Helper function to test regex matching for hashtag
+        """
         return hashtag and HASHTAG_REGEX.match(hashtag)
 
     def validate_server_ip(self, ip):
+        """
+        Helper function to validate server ip
+        Print out error if exists
+        """
         if not self.is_valid_server_ip(ip):
             print("error: server ip invalid, connection refused.")
             return False
         return True
 
     def validate_server_port(self, port):
+        """
+        Helper function to validate server port
+        Print out error if exists
+        """
         if not self.is_valid_port(port):
             print("error: server ip invalid, connection refused.")
             return False
         return True
 
     def validate_username(self, username):
+        """
+        Helper function to validate username
+        Print out error if exists
+        """
         if not self.is_valid_username(username):
             print("error: username has wrong format, connection refused.")
             return False
         return True
 
     def validate_hashtag(self, hashtag):
+        """
+        Helper function to validate hashtag
+        Print out error if exists
+        """
         if not self.is_valid_hashtag(hashtag):
             print("hashtag illegal format, connection refused.")
             return False
         return True
 
     def validate_message(self, message):
+        """
+        Helper function to validate message
+        Print out error if exists
+        """
         if not message:
             print("message format illegal.")
             return False
@@ -191,7 +266,9 @@ class Client:
         if command_input and len(command_input) > 3:
             command, *args = command_input.split(" ")
 
-        if command == "tweet" and len(args) > 0:
+        if command == "tweet":
+            if len(args) == 0:
+                print('invalid arguments')
             # message: hashtags message
             args = command_input.split("\"")
             message = args[1]
@@ -255,29 +332,27 @@ class Client:
     def sign_in(self):
         """
         Sign user in
-        $signin <username>
+        $signin <username >
 
         response:
-            0 : failure, user is already signed in
-            1 : signed in successfully
+            0: failure, user is already signed in
+            1: signed in successfully
         """
 
-        self.send_message(f'$signin {self.username}')
-        received_message = self.receive_message()
-
-        if not int(received_message):
+        # Create client_listener
+        self.client_listener = ClientListener((self.server_ip,
+                                               self.server_port), self.timeline_queue)
+        if self.client_listener.sign_in(self.username):
+            print('username legal, connection established.')
+            self.client_listener.start_listener()
+        else:
             print("username illegal, connection refused.")
             self.is_connected = False
-        else:
-            print('username legal, connection established.')
-            # Create client_listener
-            self.client_listener = ClientListener((self.server_ip,
-                                                   self.server_port), self.timeline_queue, self.hashtags)
 
     def tweet(self, message, hashtag):
         """
         Send tweet to server
-        $tweet <username> <hashtag> <message>
+        $tweet <username > <hashtag > <message>
 
         Response:
             0: Failed to upload tweet
@@ -313,10 +388,9 @@ class Client:
             return
 
         # subscribe to server
+        self.send_message(f"$subscribe {self.username} {hashtag}")
         self.hashtags.add(hashtag)
         print("operation success")
-
-        self.client_listener.subscribe(hashtag, self.username)
 
     def unsubscribe(self, hashtag):
         """
@@ -362,7 +436,7 @@ class Client:
         $getusers
 
         Response:
-          [username1, username2,...]
+          [username1, username2, ...]
         """
 
         self.send_message("$getusers")
@@ -376,7 +450,7 @@ class Client:
         $gettweets <username>
 
         Response:
-            [ <sender_username>: "<tweet message>" <origin hashtag> ]
+            [ <sender_username> : "<tweet message>" <origin hashtag> ]
             or
             "no user <Username> in the system"
         """
