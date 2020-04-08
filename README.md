@@ -7,6 +7,7 @@
 
 ## Table of Contents
 
+- [Description](#description)
 - [Installation](#installation)
 - [Features](#features)
 - [Usages](#usages)
@@ -14,6 +15,27 @@
 - [Team](#team)
 - [Support](#support)
 - [License](#license)
+
+---
+
+## Description
+
+> High Level Description of Implementation Idea
+
+- Client:
+
+  - Client will have 2 threads: main thread will take user's input and process commands, the other thread (client listener) keeps listening to server to receive new messages (if there is new message with hashtags that client is subscribing to).
+  - When first connect to server, client create a client listener which sends sign-in request to server. If success, client listener keeps listening to that socket connection to receive messages from server. Then client will create another socket connection to send request to server with new user's command input.
+  - Client saves all messages receive from server and it can be retrieved with command `timeline`
+  - All the input arguments will be checked before processing the commands.
+  - The client will clean up all data before exiting.
+
+- Server:
+
+  - When client first signs in, if there is no same existing username, client logins successfully and server saves the socket connection to broadcast messages later.
+  - Whenever accepting a new connection, server creates a new thread to handle that client.
+  - If server receives a new tweet, it will broadcast the message to all subscribers by using saved socket connection (server saved them when clients first signed in)
+  - The server will clean up all data before exiting.
 
 ---
 
@@ -42,6 +64,7 @@ $ brew install python3
 Users can send tweet with one or multiple hashtags, get all messages receive from server (messages related to hashtags that user subscribed to), retrieve online users list, subscribe hashtag, unsubscribe hashtag.
 
 ---
+
 ## Usages
 
 Move to the top directory of the project.
@@ -100,7 +123,7 @@ $ getusers
 $ exit
 ```
 
-```
+```text
 Note:
   - Server IP: `0.0.0.0` or `127.0.0.1`
   - Message format:
@@ -163,13 +186,11 @@ Note:
 
 [![github](https://img.icons8.com/nolan/64/github.png)][3.1][![linkedin](https://img.icons8.com/nolan/64/linkedin.png)][3.2][![email](https://img.icons8.com/nolan/64/email.png)][3.3]
 
-
 ---
 
 ## Support
 
 Please reach out to our team!
-
 
 ---
 
