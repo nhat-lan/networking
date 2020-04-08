@@ -151,7 +151,8 @@ class Server:
             else:
                 self.tweets.update({username: [[message, hashtags]]})
 
-            self.broadcast_message(message, hashtags)
+            self.broadcast_message(
+                f'{username} \"{message}\" {hashtags}', hashtags)
             print('{} tweeted successfully'.format(username))
         except Exception as e:
             print('Errors trying to tweet {}: {}'.format(message, e))
