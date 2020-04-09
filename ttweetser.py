@@ -76,7 +76,7 @@ class Server:
     def get_tweets(self, username, connection):
 
         formated_tweets = []
-        if username in self.clients:
+        if username not in self.clients:
             formated_tweets.append(f'no user {username} in the system')
         else:
             tweets = self.tweets.get(username)
