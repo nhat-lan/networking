@@ -142,8 +142,7 @@ Note:
 ---
 
 ## Contributing
-
-> To get started...
+- work was allocated equally between all team members
 
 ### Step 1
 

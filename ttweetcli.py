@@ -32,7 +32,7 @@ class ClientListener:
 
         is_signed_in = 0
         try:
-            self.connection_socket.connect((self.server_addr))
+            self.connection_socket.connect_ex((self.server_addr))
             self.connection_socket.sendall(
                 f'$signin {username}'.encode('utf-8'))
             received_message = self.connection_socket.recv(
@@ -56,8 +56,8 @@ class ClientListener:
                 target=self.listen, daemon=True)
             x.start()
         except Exception as e:
-            pass
             # print(str(e))
+            pass
 
     def listen(self):
         """
@@ -69,8 +69,14 @@ class ClientListener:
                 data = self.connection_socket.recv(1024)
                 if data:
                     message = data.decode('utf-8')
-                    self.timeline_queue.put(message)
+                    # print the message of user's subscribed hashtag
                     print(message)
+
+                    # find first index of space to modify the output format for '$timeline'
+                    idx = message.index(" ") if ' ' in message else -1
+                    if idx >= 0:
+                        message = message[:idx] + ':' + message[idx:]
+                    self.timeline_queue.put(message)
         except Exception as e:
             # print(e)
             pass
@@ -155,17 +161,17 @@ class Client:
             print(e)
             pass
 
-    def receive_message(self):
+    def receive_message(self, decode=True):
         """
-        Helper function to receive and decode message to server
+        Helper function to receive byte array message
         """
-        message = ''
+        byte_chunks = bytearray()
         try:
-            message = self.client_socket.recv(1024)
+            byte_chunks.extend(self.client_socket.recv(2048))
         except Exception as e:
             # print(e)
             pass
-        return message.decode('utf-8')
+        return byte_chunks.decode('utf-8') if decode else byte_chunks
 
     def is_valid_server_ip(self, ip):
         """
@@ -312,7 +318,7 @@ class Client:
 
         self.client_socket = socket(AF_INET, SOCK_STREAM)
         try:
-            self.client_socket.connect((self.server_ip, self.server_port))
+            self.client_socket.connect_ex((self.server_ip, self.server_port))
             self.is_connected = True
 
         except Exception as e:
@@ -459,23 +465,21 @@ class Client:
             return
 
         self.send_message("$gettweets " + username)
-        is_done = False
-        messages = ''
+        byte_chunks = bytearray()
+        total_size_data = int(self.client_socket.recv(8).decode('utf-8'))
 
-        while not is_done:
-            received_message = self.receive_message()
+        while total_size_data:
+            data = self.receive_message(decode=False)
 
-            if received_message:
-                if received_message == 'Done':
-                    is_done = True
-                else:
-                    messages += received_message
+            if data:
+                byte_chunks.extend(data)
+                total_size_data -= len(data)
+            else:
+                break
 
-        if len(messages):
-            tweets = json.loads(messages)
-            # Print to console
-            if len(tweets) > 0:
-                print('\n'.join(tweets))
+        if len(byte_chunks):
+            tweets = byte_chunks.decode('utf-8')
+            print(tweets)
 
 
 if __name__ == "__main__":
