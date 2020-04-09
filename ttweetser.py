@@ -4,6 +4,7 @@ from socket import *
 import threading
 from collections import OrderedDict
 
+
 class Server:
     def __init__(self):
         self.hashtags = {}
@@ -15,8 +16,11 @@ class Server:
         self.clients.update({username: connection})
         self.tweets.update({username: []})
 
-    def send_message(self, message, connection):
-        connection.sendall(message.encode('utf-8'))
+    def send_message(self, message, connection, decode=True):
+        if decode:
+            return connection.sendall(message.encode('utf-8'))
+        else:
+            return connection.sendall(message)
 
     def create_connection(self, server_port):
         try:
@@ -75,17 +79,23 @@ class Server:
 
     def get_tweets(self, username, connection):
 
-        formated_tweets = []
+        formated_tweets = bytearray()
         if username not in self.clients:
-            formated_tweets.append(f'no user {username} in the system')
+            formated_tweets.extend(
+                f'no user {username} in the system'.encode('utf-8'))
         else:
             tweets = self.tweets.get(username)
             for tweet in tweets:
-                formated_tweets.append(
-                    f'{username}: \"{tweet[0]}\" {tweet[1]}')
+                if len(formated_tweets):
+                    formated_tweets.extend(b'\n')
+                formated_tweets.extend(
+                    f'{username}: \"{tweet[0]}\" {tweet[1]}'.encode('utf-8'))
         try:
-            self.send_message(json.dumps(formated_tweets), connection)
-            self.send_message("Send all messages ...", connection)
+            self.send_message(format(len(formated_tweets), '08d').encode(
+                'utf-8'), connection, decode=False)
+
+            self.send_message(formated_tweets, connection, decode=False)
+
             print(f"Sent all tweets from {username} successfully")
         except Exception as e:
             print(f'Error getting tweets: {e}')
@@ -226,6 +236,7 @@ class Server:
             self.tweets.clear()
 
         self.hashtags = self.clients = self.tweets, self.server_socket = None
+
 
 if __name__ == "__main__":
     server = Server()
