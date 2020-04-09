@@ -161,7 +161,7 @@ class Client:
         """
         message = ''
         try:
-            message = self.client_socket.recv(1024)
+            message = self.client_socket.recv(2048)
         except Exception as e:
             # print(e)
             pass
@@ -460,12 +460,18 @@ class Client:
 
         self.send_message("$gettweets " + username)
         messages = ''
-        while True:
-            chunk = self.receive_message()
-            if not chunk:
+        RECV_ALL_MESSAGE_FLAG = 'Send all messages ...'
+        is_done = False
+        
+        while not is_done:
+            received_message = self.receive_message()
+            messages += received_message
+            if RECV_ALL_MESSAGE_FLAG in messages:
+                messages = messages[:-(len(RECV_ALL_MESSAGE_FLAG))]
                 break
             else:
-                messages += chunk 
+                break
+
         if len(messages):
             tweets = json.loads(messages)
             if len(tweets) > 0:

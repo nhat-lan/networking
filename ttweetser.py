@@ -85,6 +85,7 @@ class Server:
                     f'{username}: \"{tweet[0]}\" {tweet[1]}')
         try:
             self.send_message(json.dumps(formated_tweets), connection)
+            self.send_message("Send all messages ...", connection)
             print(f"Sent all tweets from {username} successfully")
         except Exception as e:
             print(f'Error getting tweets: {e}')
@@ -226,6 +227,6 @@ class Server:
 
         self.hashtags = self.clients = self.tweets, self.server_socket = None
 
-
-server = Server()
-server.run_server()
+if __name__ == "__main__":
+    server = Server()
+    server.run_server()
