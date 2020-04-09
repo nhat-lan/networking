@@ -2,11 +2,12 @@ import sys
 import json
 from socket import *
 import threading
+from collections import OrderedDict
 
 class Server:
     def __init__(self):
         self.hashtags = {}
-        self.clients = {}
+        self.clients = OrderedDict()
         self.tweets = {}
         self.server_socket = None
 
