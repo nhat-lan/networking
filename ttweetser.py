@@ -28,12 +28,6 @@ class Server:
             print("Caught exception {}".format(e))
             sys.exit(1)
 
-    def is_port_valid(self, server_port):
-        if server_port < 13000 or server_port > 14000:
-            print(
-                "The port number is invalid, the range of port numbers is 13000 to 14000")
-            sys.exit()
-
     def execute_request(self, command_input, conn):
         try:
             if command_input:
@@ -202,7 +196,6 @@ class Server:
         try:
             # create the server connection
             server_port = int(args[1])
-            self.is_port_valid(server_port)
             self.create_connection(server_port)
         except (ValueError, OverflowError) as er:
             print("Caught exception {}".format(er))
