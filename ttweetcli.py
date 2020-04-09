@@ -69,8 +69,14 @@ class ClientListener:
                 data = self.connection_socket.recv(1024)
                 if data:
                     message = data.decode('utf-8')
-                    self.timeline_queue.put(message)
+                    # print the message of user's subscribed hashtag
                     print(message)
+
+                    # find first index of space to modify the output format for '$timeline'
+                    idx = message.index(" ") if ' ' in message else -1
+                    if idx >= 0:
+                        message = message[:idx] + ':' + message[idx:]
+                    self.timeline_queue.put(message)
         except Exception as e:
             # print(e)
             pass
