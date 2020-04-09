@@ -28,12 +28,6 @@ class Server:
             print("Caught exception {}".format(e))
             sys.exit(1)
 
-    def is_port_valid(self, server_port):
-        if server_port < 13000 or server_port > 14000:
-            print(
-                "The port number is invalid, the range of port numbers is 13000 to 14000")
-            sys.exit()
-
     def execute_request(self, command_input, conn):
         try:
             if command_input:
@@ -82,7 +76,7 @@ class Server:
     def get_tweets(self, username, connection):
 
         formated_tweets = []
-        if username in self.clients:
+        if username not in self.clients:
             formated_tweets.append(f'no user {username} in the system')
         else:
             tweets = self.tweets.get(username)
@@ -152,7 +146,7 @@ class Server:
                 self.tweets.update({username: [[message, hashtags]]})
 
             self.broadcast_message(
-                f'{username} \"{message}\" {hashtags}', hashtags)
+                f'{username}: \"{message}\" {hashtags}', hashtags)
             print('{} tweeted successfully'.format(username))
         except Exception as e:
             print('Errors trying to tweet {}: {}'.format(message, e))
@@ -202,7 +196,6 @@ class Server:
         try:
             # create the server connection
             server_port = int(args[1])
-            self.is_port_valid(server_port)
             self.create_connection(server_port)
         except (ValueError, OverflowError) as er:
             print("Caught exception {}".format(er))
