@@ -3,7 +3,6 @@ import json
 from socket import *
 import threading
 
-
 class Server:
     def __init__(self):
         self.hashtags = {}
@@ -85,7 +84,6 @@ class Server:
                     f'{username}: \"{tweet[0]}\" {tweet[1]}')
         try:
             self.send_message(json.dumps(formated_tweets), connection)
-            self.send_message('Done', connection)
             print(f"Sent all tweets from {username} successfully")
         except Exception as e:
             print(f'Error getting tweets: {e}')

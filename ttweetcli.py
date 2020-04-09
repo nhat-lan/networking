@@ -461,18 +461,9 @@ class Client:
         self.send_message("$gettweets " + username)
         is_done = False
         messages = ''
-
-        while not is_done:
-            received_message = self.receive_message()
-
-            if received_message:
-                if received_message == 'Done':
-                    is_done = True
-                else:
-                    messages += received_message
-
-        if len(messages):
-            tweets = json.loads(messages)
+        received_message = self.receive_message()
+        if len(received_message):
+            tweets = json.loads(received_message)
             # Print to console
             if len(tweets) > 0:
                 print('\n'.join(tweets))
