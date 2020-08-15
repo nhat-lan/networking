@@ -1,6 +1,6 @@
 # Simple Tweeter Server Handles Multi-Clients
 
-> Allows multi-clients connects to server, subscribe and tweets message with hashtags
+> Allows multi-clients to connect to server, subscribe and tweet messages with hashtags
 
 [![Build Status](http://img.shields.io/travis/badges/badgerbadgerbadger.svg?style=flat-square)](https://travis-ci.org/badges/badgerbadgerbadger) [![MIT License](https://img.shields.io/apm/l/atomic-design-ui.svg?)](https://github.com/tterb/atomic-design-ui/blob/master/LICENSEs)
 [![Version](https://badge.fury.io/gh/tterb%2FHyde.svg)](https://badge.fury.io/gh/tterb%2FHyde)
@@ -24,15 +24,15 @@
 
 - Client:
 
-  - Client will have 2 threads: main thread will take user's input and process commands, the other thread (client listener) keeps listening to server to receive new messages (if there is new message with hashtags that client is subscribing to).
-  - When first connect to server, client create a client listener which sends sign-in request to server. If success, client listener keeps listening to that socket connection to receive messages from server. Then client will create another socket connection to send request to server with new user's command input.
-  - Client saves all messages receive from server and it can be retrieved with command `timeline`
+  - Client will have 2 threads: main thread takes user's input and processes commands, the other thread (client listener) keeps listening to the server to receive new messages (if there is new message with hashtags that client has subscribed).
+  - When connecting to the server, the client will create a client listener which sends sign-in request to server. If sign-in successful, client listener will keep listening to that socket connection to receive messages from the server. Then client will create another socket connection to send request to server with new user's command input.
+  - Client saves all messages receive from server. Those messages can be retrieved with command `timeline`
   - All the input arguments will be checked before processing the commands.
   - The client will clean up all data before exiting.
 
 - Server:
 
-  - When client first signs in, if there is no same existing username, client logins successfully and server saves the socket connection to broadcast messages later.
+  - When client first signs in, if there is no existing username => client logins successfully. The server will save the socket connection to broadcast messages later.
   - Whenever accepting a new connection, server creates a new thread to handle that client.
   - If server receives a new tweet, it will broadcast the message to all subscribers by using saved socket connection (server saved them when clients first signed in)
   - The server will clean up all data before exiting.
